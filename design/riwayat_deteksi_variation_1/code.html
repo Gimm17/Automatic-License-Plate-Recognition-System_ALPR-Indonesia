@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ALPR Indonesia - Riwayat Deteksi</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary-container": "#8d9caa",
+                    "secondary-fixed-dim": "#bec8d0",
+                    "on-surface-variant": "#43474b",
+                    "inverse-on-surface": "#edf2f2",
+                    "on-surface": "#171d1d",
+                    "outline": "#74777c",
+                    "on-secondary-container": "#5a646b",
+                    "on-primary-fixed": "#0e1d27",
+                    "tertiary-fixed-dim": "#ffb786",
+                    "on-tertiary-fixed": "#311400",
+                    "secondary": "#566067",
+                    "on-tertiary-fixed-variant": "#723600",
+                    "on-primary": "#ffffff",
+                    "on-background": "#171d1d",
+                    "background": "#f5fafa",
+                    "error-container": "#ffdad6",
+                    "primary-fixed": "#d4e5f3",
+                    "surface-variant": "#dee3e3",
+                    "surface-container-low": "#f0f5f4",
+                    "surface-container-lowest": "#ffffff",
+                    "inverse-primary": "#b8c9d7",
+                    "secondary-container": "#d7e1e9",
+                    "on-error": "#ffffff",
+                    "primary-container": "#25343f",
+                    "primary": "#0f1f29",
+                    "on-tertiary-container": "#e1833b",
+                    "tertiary-container": "#532600",
+                    "on-tertiary": "#ffffff",
+                    "on-secondary-fixed": "#131d23",
+                    "on-secondary-fixed-variant": "#3e484f",
+                    "primary-fixed-dim": "#b8c9d7",
+                    "surface-container": "#eaefef",
+                    "tertiary": "#331500",
+                    "error": "#ba1a1a",
+                    "on-primary-fixed-variant": "#3a4954",
+                    "surface-container-highest": "#dee3e3",
+                    "surface-dim": "#d6dbdb",
+                    "on-secondary": "#ffffff",
+                    "surface-tint": "#51606c",
+                    "surface-bright": "#f5fafa",
+                    "outline-variant": "#c3c7cb",
+                    "inverse-surface": "#2c3132",
+                    "on-error-container": "#93000a",
+                    "tertiary-fixed": "#ffdcc6",
+                    "surface-container-high": "#e4e9e9",
+                    "secondary-fixed": "#dae4ec",
+                    "surface": "#f5fafa"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {},
+            "fontFamily": {
+                    "headline": ["Inter"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface antialiased min-h-screen flex selection:bg-primary selection:text-on-primary">
+<aside class="bg-[#f0f5f4] dark:bg-[#13232c] fixed left-0 top-0 h-screen w-64 z-50 flex flex-col h-full p-6 space-y-4 shadow-[4px_0_24px_rgba(15,31,41,0.04)]">
+<div class="mb-4">
+<h1 class="text-lg font-black text-[#0f1f29] dark:text-white mb-8 tracking-tighter">ALPR Curator</h1>
+</div>
+<div class="flex items-center gap-3 mb-8 p-3 bg-[#f5fafa] dark:bg-[#0f1f29] rounded-lg">
+<div class="w-10 h-10 rounded-full bg-primary-container overflow-hidden flex-shrink-0">
+<img alt="System Operator" class="w-full h-full object-cover" data-alt="Close up portrait of a professional male technician in a control room, soft cool lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC0WAJChfz0j6Z3Dk-BJyjWgixNDt4ZWnY5gR2-c-x-Zok7S8sgMb7B3aFGytI16KSLDJhgAwJZKa3aYFTqnXYshOmxN2fmwlKNvilbyR7wDXeVOAB_IPVX5LStLz_THiiDMGoKGZo2IXEnWbxijJwBFHHoN30fc9kVa55wtMLbhwVBUhwGGzb6EELArtCTKEjsjwTaF98c8j8ZKg0HSAXGIJMar4s5vN3m00pcyciedfELBLyHR-m-9tIFDySmdB6RCI1hEvzYtdbZ"/>
+</div>
+<div>
+<p class="font-['Inter'] font-medium text-[13px] uppercase tracking-wider text-[#0f1f29] dark:text-[#f5fafa]">System Operator</p>
+<p class="text-[11px] text-[#607d8b] dark:text-[#b0bec5] font-medium tracking-wide">Technical Operations</p>
+</div>
+</div>
+<nav class="flex-1 space-y-2">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-md text-[#607d8b] dark:text-[#b0bec5] hover:text-[#0f1f29] dark:hover:text-white hover:translate-x-1 transition-transform active:scale-95 duration-150 font-['Inter'] font-medium text-[13px] uppercase tracking-wider" href="#">
+<span class="material-symbols-outlined text-[20px]">dashboard</span>
+                Dashboard
+            </a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-md text-[#607d8b] dark:text-[#b0bec5] hover:text-[#0f1f29] dark:hover:text-white hover:translate-x-1 transition-transform active:scale-95 duration-150 font-['Inter'] font-medium text-[13px] uppercase tracking-wider" href="#">
+<span class="material-symbols-outlined text-[20px]">videocam</span>
+                Live Monitor
+            </a>
+<a class="flex items-center gap-3 px-3 py-2.5 bg-white dark:bg-[#25343f] text-[#0f1f29] dark:text-white rounded-md shadow-sm font-['Inter'] font-medium text-[13px] uppercase tracking-wider" href="#">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">history</span>
+                Riwayat
+            </a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-md text-[#607d8b] dark:text-[#b0bec5] hover:text-[#0f1f29] dark:hover:text-white hover:translate-x-1 transition-transform active:scale-95 duration-150 font-['Inter'] font-medium text-[13px] uppercase tracking-wider" href="#">
+<span class="material-symbols-outlined text-[20px]">directions_car</span>
+                Kendaraan
+            </a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-md text-[#607d8b] dark:text-[#b0bec5] hover:text-[#0f1f29] dark:hover:text-white hover:translate-x-1 transition-transform active:scale-95 duration-150 font-['Inter'] font-medium text-[13px] uppercase tracking-wider" href="#">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+                Pengaturan
+            </a>
+</nav>
+<div class="pt-6 border-t border-[#c3c7cb]/20 space-y-2">
+<a class="flex items-center gap-3 px-3 py-2 rounded-md text-[#607d8b] dark:text-[#b0bec5] hover:text-[#0f1f29] dark:hover:text-white hover:translate-x-1 transition-transform font-['Inter'] font-medium text-[12px] uppercase tracking-wider" href="#">
+<span class="material-symbols-outlined text-[18px]">upload_file</span>
+                Upload
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-md text-[#607d8b] dark:text-[#b0bec5] hover:text-[#0f1f29] dark:hover:text-white hover:translate-x-1 transition-transform font-['Inter'] font-medium text-[12px] uppercase tracking-wider" href="#">
+<span class="material-symbols-outlined text-[18px]">movie</span>
+                Batch Video
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-md text-[#607d8b] dark:text-[#b0bec5] hover:text-[#0f1f29] dark:hover:text-white hover:translate-x-1 transition-transform font-['Inter'] font-medium text-[12px] uppercase tracking-wider" href="#">
+<span class="material-symbols-outlined text-[18px]">description</span>
+                Export CSV
+            </a>
+</div>
+<button class="mt-4 w-full bg-tertiary-fixed-dim hover:opacity-90 text-on-tertiary-fixed font-bold py-3 px-4 rounded-md shadow-sm transition-all text-sm uppercase tracking-wider active:scale-95 duration-150">
+            Emergency Alert
+        </button>
+</aside>
+<div class="flex-1 flex flex-col ml-64 min-w-0">
+<header class="bg-[#f5fafa] dark:bg-[#0f1f29] fixed top-0 right-0 left-64 h-16 z-40 shadow-none flex items-center justify-between px-8 w-full border-b border-[#f0f5f4] dark:border-[#1a2b36]">
+<div class="flex items-center gap-4">
+<span class="text-xl font-bold tracking-tighter text-[#0f1f29] dark:text-white">ALPR Indonesia</span>
+<div class="h-4 w-[1px] bg-outline-variant/30 hidden md:block"></div>
+<div class="hidden md:flex items-center bg-surface-container-low rounded-full px-3 py-1.5 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+<span class="material-symbols-outlined text-on-surface-variant text-[18px] mr-2">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm w-48 text-primary placeholder:text-outline p-0" placeholder="Search parameters..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-[#455a64] dark:text-[#90a4ae] hover:bg-[#dee3e3] dark:hover:bg-[#25343f] transition-all p-2 rounded-full cursor-pointer active:opacity-80">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="text-[#455a64] dark:text-[#90a4ae] hover:bg-[#dee3e3] dark:hover:bg-[#25343f] transition-all p-2 rounded-full cursor-pointer active:opacity-80">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<button class="bg-gradient-to-br from-primary to-primary-container text-on-primary font-['Inter'] tracking-tight text-sm font-semibold px-5 py-2 rounded-md shadow-sm hover:opacity-95 transition-opacity active:scale-95 ml-2">
+                    Live Monitor
+                </button>
+</div>
+</header>
+<main class="flex-1 mt-16 p-8 lg:p-10 space-y-8 max-w-[1600px] mx-auto w-full">
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+<div>
+<h2 class="text-3xl font-headline font-bold text-primary tracking-tight mb-2">Riwayat Deteksi</h2>
+<p class="text-on-surface-variant text-sm font-medium">Log komprehensif kendaraan yang teridentifikasi di seluruh jaringan kamera.</p>
+</div>
+<div class="flex gap-4">
+<div class="bg-surface-container-low px-5 py-3 rounded-lg border border-outline-variant/20 shadow-sm flex flex-col justify-center">
+<span class="text-xs font-bold text-secondary uppercase tracking-widest mb-1">Total Hari Ini</span>
+<span class="text-2xl font-headline font-black text-primary leading-none tracking-tighter">14,289</span>
+</div>
+<div class="bg-surface-container-low px-5 py-3 rounded-lg border border-outline-variant/20 shadow-sm flex flex-col justify-center">
+<span class="text-xs font-bold text-tertiary-container uppercase tracking-widest mb-1">Flagged</span>
+<span class="text-2xl font-headline font-black text-tertiary-container leading-none tracking-tighter">23</span>
+</div>
+</div>
+</div>
+<section class="bg-surface-container-low p-3 rounded-xl border border-outline-variant/10 shadow-[0_4px_20px_rgba(15,31,41,0.03)] flex flex-wrap gap-3 items-center backdrop-blur-md">
+<div class="relative flex-1 min-w-[200px]">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-secondary text-[20px]">search</span>
+<input class="w-full bg-surface-container-lowest border-0 border-b-2 border-transparent focus:border-primary focus:ring-0 pl-12 pr-4 py-3 text-sm text-primary font-medium placeholder:text-outline transition-colors rounded-lg shadow-sm" placeholder="Cari Plat Nomor..." type="text"/>
+</div>
+<div class="relative min-w-[180px]">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-secondary text-[20px]">calendar_today</span>
+<select class="w-full bg-surface-container-lowest border-0 border-b-2 border-transparent focus:border-primary focus:ring-0 pl-12 pr-10 py-3 text-sm text-primary font-medium appearance-none transition-colors rounded-lg shadow-sm cursor-pointer">
+<option>Hari Ini</option>
+<option>7 Hari Terakhir</option>
+<option>30 Hari Terakhir</option>
+<option>Kustom...</option>
+</select>
+<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-secondary text-[20px] pointer-events-none">expand_more</span>
+</div>
+<div class="relative min-w-[220px]">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-secondary text-[20px]">videocam</span>
+<select class="w-full bg-surface-container-lowest border-0 border-b-2 border-transparent focus:border-primary focus:ring-0 pl-12 pr-10 py-3 text-sm text-primary font-medium appearance-none transition-colors rounded-lg shadow-sm cursor-pointer">
+<option>Semua Kamera (42)</option>
+<option>Cam-01-Sudirman</option>
+<option>Cam-02-Thamrin</option>
+<option>Cam-05-GatotSubroto</option>
+</select>
+<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-secondary text-[20px] pointer-events-none">expand_more</span>
+</div>
+<div class="relative min-w-[160px]">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-secondary text-[20px]">filter_list</span>
+<select class="w-full bg-surface-container-lowest border-0 border-b-2 border-transparent focus:border-primary focus:ring-0 pl-12 pr-10 py-3 text-sm text-primary font-medium appearance-none transition-colors rounded-lg shadow-sm cursor-pointer">
+<option>Semua Status</option>
+<option>Authorized</option>
+<option>Flagged</option>
+<option>Unregistered</option>
+</select>
+<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-secondary text-[20px] pointer-events-none">expand_more</span>
+</div>
+<button class="bg-surface-container-highest text-primary hover:bg-outline-variant/20 px-4 py-3 rounded-lg font-bold text-sm transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">restart_alt</span>
+                    Reset
+                </button>
+</section>
+<div class="bg-surface-container-lowest rounded-xl shadow-[0_8px_30px_rgba(15,31,41,0.04)] overflow-hidden border border-outline-variant/10">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low/50">
+<th class="py-4 px-6 text-xs font-bold text-secondary uppercase tracking-widest w-16">No</th>
+<th class="py-4 px-6 text-xs font-bold text-secondary uppercase tracking-widest">Plat</th>
+<th class="py-4 px-6 text-xs font-bold text-secondary uppercase tracking-widest">Waktu</th>
+<th class="py-4 px-6 text-xs font-bold text-secondary uppercase tracking-widest">Kamera</th>
+<th class="py-4 px-6 text-xs font-bold text-secondary uppercase tracking-widest">Wilayah</th>
+<th class="py-4 px-6 text-xs font-bold text-secondary uppercase tracking-widest">Confidence</th>
+<th class="py-4 px-6 text-xs font-bold text-secondary uppercase tracking-widest">Status</th>
+<th class="py-4 px-6 text-xs font-bold text-secondary uppercase tracking-widest text-right">Aksi</th>
+</tr>
+</thead>
+<tbody class="text-sm">
+<tr class="group hover:bg-surface-container-highest/50 transition-colors border-b border-outline-variant/5 last:border-0">
+<td class="py-5 px-6 font-medium text-on-surface-variant">1</td>
+<td class="py-5 px-6">
+<div class="inline-flex items-center justify-center px-3 py-1.5 bg-surface-container-lowest border border-outline-variant/30 shadow-sm rounded text-primary font-headline font-bold text-[15px] tracking-[0.1em]">
+                                        B 1234 RFS
+                                    </div>
+</td>
+<td class="py-5 px-6">
+<div class="flex flex-col">
+<span class="font-semibold text-primary">14:32:01</span>
+<span class="text-xs text-secondary mt-0.5">24 Okt 2023</span>
+</div>
+</td>
+<td class="py-5 px-6 font-medium text-primary flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-secondary">videocam</span>
+                                    Cam-01-Sudirman
+                                </td>
+<td class="py-5 px-6 font-medium text-on-surface-variant">Jakarta Pusat</td>
+<td class="py-5 px-6">
+<div class="flex items-center gap-2">
+<div class="w-16 h-1.5 bg-surface-container-high rounded-full overflow-hidden">
+<div class="bg-primary h-full rounded-full" style="width: 98.5%"></div>
+</div>
+<span class="font-bold text-primary text-xs">98.5%</span>
+</div>
+</td>
+<td class="py-5 px-6">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-secondary-container text-on-secondary-container text-[11px] font-extrabold uppercase tracking-widest rounded-full">
+                                        Authorized
+                                    </span>
+</td>
+<td class="py-5 px-6 text-right">
+<button class="text-secondary hover:text-primary transition-colors p-1 opacity-0 group-hover:opacity-100">
+<span class="material-symbols-outlined text-[20px]">open_in_new</span>
+</button>
+</td>
+</tr>
+<tr class="bg-surface-container-low/20 group hover:bg-surface-container-highest/50 transition-colors border-b border-outline-variant/5 last:border-0">
+<td class="py-5 px-6 font-medium text-on-surface-variant">2</td>
+<td class="py-5 px-6">
+<div class="inline-flex items-center justify-center px-3 py-1.5 bg-surface-container-lowest border border-tertiary-container/40 shadow-sm rounded text-primary font-headline font-bold text-[15px] tracking-[0.1em]">
+                                        D 5678 EFG
+                                    </div>
+</td>
+<td class="py-5 px-6">
+<div class="flex flex-col">
+<span class="font-semibold text-primary">14:28:45</span>
+<span class="text-xs text-secondary mt-0.5">24 Okt 2023</span>
+</div>
+</td>
+<td class="py-5 px-6 font-medium text-primary flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-secondary">videocam</span>
+                                    Cam-05-GatotSubroto
+                                </td>
+<td class="py-5 px-6 font-medium text-on-surface-variant">Jakarta Selatan</td>
+<td class="py-5 px-6">
+<div class="flex items-center gap-2">
+<div class="w-16 h-1.5 bg-surface-container-high rounded-full overflow-hidden">
+<div class="bg-primary h-full rounded-full" style="width: 92.1%"></div>
+</div>
+<span class="font-bold text-primary text-xs">92.1%</span>
+</div>
+</td>
+<td class="py-5 px-6">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-tertiary-container text-on-tertiary-container text-[11px] font-extrabold uppercase tracking-widest rounded-full">
+<span class="material-symbols-outlined text-[12px]" style="font-variation-settings: 'FILL' 1;">warning</span>
+                                        Flagged
+                                    </span>
+</td>
+<td class="py-5 px-6 text-right">
+<button class="text-secondary hover:text-primary transition-colors p-1 opacity-0 group-hover:opacity-100">
+<span class="material-symbols-outlined text-[20px]">open_in_new</span>
+</button>
+</td>
+</tr>
+<tr class="group hover:bg-surface-container-highest/50 transition-colors border-b border-outline-variant/5 last:border-0">
+<td class="py-5 px-6 font-medium text-on-surface-variant">3</td>
+<td class="py-5 px-6">
+<div class="inline-flex items-center justify-center px-3 py-1.5 bg-surface-container-lowest border border-outline-variant/30 shadow-sm rounded text-primary font-headline font-bold text-[15px] tracking-[0.1em]">
+                                        L 9012 HIJ
+                                    </div>
+</td>
+<td class="py-5 px-6">
+<div class="flex flex-col">
+<span class="font-semibold text-primary">14:15:22</span>
+<span class="text-xs text-secondary mt-0.5">24 Okt 2023</span>
+</div>
+</td>
+<td class="py-5 px-6 font-medium text-primary flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-secondary">videocam</span>
+                                    Cam-12-Pahlawan
+                                </td>
+<td class="py-5 px-6 font-medium text-on-surface-variant">Surabaya</td>
+<td class="py-5 px-6">
+<div class="flex items-center gap-2">
+<div class="w-16 h-1.5 bg-surface-container-high rounded-full overflow-hidden">
+<div class="bg-primary h-full rounded-full" style="width: 87.0%"></div>
+</div>
+<span class="font-bold text-primary text-xs">87.0%</span>
+</div>
+</td>
+<td class="py-5 px-6">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-surface-container-high text-on-surface text-[11px] font-extrabold uppercase tracking-widest rounded-full">
+                                        Unregistered
+                                    </span>
+</td>
+<td class="py-5 px-6 text-right">
+<button class="text-secondary hover:text-primary transition-colors p-1 opacity-0 group-hover:opacity-100">
+<span class="material-symbols-outlined text-[20px]">open_in_new</span>
+</button>
+</td>
+</tr>
+<tr class="bg-surface-container-low/20 group hover:bg-surface-container-highest/50 transition-colors border-b border-outline-variant/5 last:border-0">
+<td class="py-5 px-6 font-medium text-on-surface-variant">4</td>
+<td class="py-5 px-6">
+<div class="inline-flex items-center justify-center px-3 py-1.5 bg-surface-container-lowest border border-outline-variant/30 shadow-sm rounded text-primary font-headline font-bold text-[15px] tracking-[0.1em]">
+                                        B 3344 KKL
+                                    </div>
+</td>
+<td class="py-5 px-6">
+<div class="flex flex-col">
+<span class="font-semibold text-primary">14:02:10</span>
+<span class="text-xs text-secondary mt-0.5">24 Okt 2023</span>
+</div>
+</td>
+<td class="py-5 px-6 font-medium text-primary flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-secondary">videocam</span>
+                                    Cam-02-Thamrin
+                                </td>
+<td class="py-5 px-6 font-medium text-on-surface-variant">Jakarta Pusat</td>
+<td class="py-5 px-6">
+<div class="flex items-center gap-2">
+<div class="w-16 h-1.5 bg-surface-container-high rounded-full overflow-hidden">
+<div class="bg-primary h-full rounded-full" style="width: 95.2%"></div>
+</div>
+<span class="font-bold text-primary text-xs">95.2%</span>
+</div>
+</td>
+<td class="py-5 px-6">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-secondary-container text-on-secondary-container text-[11px] font-extrabold uppercase tracking-widest rounded-full">
+                                        Authorized
+                                    </span>
+</td>
+<td class="py-5 px-6 text-right">
+<button class="text-secondary hover:text-primary transition-colors p-1 opacity-0 group-hover:opacity-100">
+<span class="material-symbols-outlined text-[20px]">open_in_new</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="bg-surface-container-lowest border-t border-outline-variant/10 px-6 py-4 flex items-center justify-between">
+<span class="text-sm font-medium text-secondary">Menampilkan 1-4 dari 14,289 entri</span>
+<div class="flex gap-2">
+<button class="w-8 h-8 flex items-center justify-center rounded bg-surface-container-high text-secondary cursor-not-allowed opacity-50">
+<span class="material-symbols-outlined text-[18px]">chevron_left</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center rounded bg-primary text-on-primary font-bold text-sm">1</button>
+<button class="w-8 h-8 flex items-center justify-center rounded hover:bg-surface-container-highest text-primary font-bold text-sm transition-colors">2</button>
+<button class="w-8 h-8 flex items-center justify-center rounded hover:bg-surface-container-highest text-primary font-bold text-sm transition-colors">3</button>
+<span class="w-8 h-8 flex items-center justify-center text-secondary">...</span>
+<button class="w-8 h-8 flex items-center justify-center rounded bg-surface-container-lowest border border-outline-variant/20 hover:bg-surface-container-highest text-primary transition-colors">
+<span class="material-symbols-outlined text-[18px]">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

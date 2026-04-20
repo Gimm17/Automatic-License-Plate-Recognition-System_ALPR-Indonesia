@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ALPR Indonesia - Live Monitor</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-primary-container": "#8d9caa",
+                        "secondary-fixed-dim": "#bec8d0",
+                        "on-surface-variant": "#43474b",
+                        "inverse-on-surface": "#edf2f2",
+                        "on-surface": "#171d1d",
+                        "outline": "#74777c",
+                        "on-secondary-container": "#5a646b",
+                        "on-primary-fixed": "#0e1d27",
+                        "tertiary-fixed-dim": "#ffb786",
+                        "on-tertiary-fixed": "#311400",
+                        "secondary": "#566067",
+                        "on-tertiary-fixed-variant": "#723600",
+                        "on-primary": "#ffffff",
+                        "on-background": "#171d1d",
+                        "background": "#f5fafa",
+                        "error-container": "#ffdad6",
+                        "primary-fixed": "#d4e5f3",
+                        "surface-variant": "#dee3e3",
+                        "surface-container-low": "#f0f5f4",
+                        "surface-container-lowest": "#ffffff",
+                        "inverse-primary": "#b8c9d7",
+                        "secondary-container": "#d7e1e9",
+                        "on-error": "#ffffff",
+                        "primary-container": "#25343f",
+                        "primary": "#0f1f29",
+                        "on-tertiary-container": "#e1833b",
+                        "tertiary-container": "#532600",
+                        "on-tertiary": "#ffffff",
+                        "on-secondary-fixed": "#131d23",
+                        "on-secondary-fixed-variant": "#3e484f",
+                        "primary-fixed-dim": "#b8c9d7",
+                        "surface-container": "#eaefef",
+                        "tertiary": "#331500",
+                        "error": "#ba1a1a",
+                        "on-primary-fixed-variant": "#3a4954",
+                        "surface-container-highest": "#dee3e3",
+                        "surface-dim": "#d6dbdb",
+                        "on-secondary": "#ffffff",
+                        "surface-tint": "#51606c",
+                        "surface-bright": "#f5fafa",
+                        "outline-variant": "#c3c7cb",
+                        "inverse-surface": "#2c3132",
+                        "on-error-container": "#93000a",
+                        "tertiary-fixed": "#ffdcc6",
+                        "surface-container-high": "#e4e9e9",
+                        "secondary-fixed": "#dae4ec",
+                        "surface": "#f5fafa"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    fontFamily: {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen flex font-body">
+<!-- SideNavBar -->
+<nav class="fixed left-0 top-0 h-screen w-64 z-50 bg-[#f0f5f4] dark:bg-[#13232c] text-[#0f1f29] dark:text-[#f5fafa] font-['Inter'] font-medium text-[13px] uppercase tracking-wider shadow-[4px_0_24px_rgba(15,31,41,0.04)] flex flex-col p-6 space-y-4">
+<div class="mb-8">
+<h1 class="text-lg font-black text-[#0f1f29] dark:text-white">ALPR Indonesia</h1>
+<div class="mt-4 flex items-center space-x-3">
+<img alt="System Operator" class="w-10 h-10 rounded-full border border-outline-variant/20" data-alt="professional headshot of a man in a control room setting, neutral expression, subtle cool lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDYbmf6lx2Mg8DpZWTbUiU4EcSLwCIXTSRrKQDQvqptJG6oPdAcvAg3u9T0bQIMgEofPvxhO58k-j2u1q1zFnx5gAzdmpiTcOzQ9mkCVn1R_61w_WOReOPkpZfwF7bVKFwaV_xwn0rMWAlphevubc8qAY1JLga8GWKzmiUjHCHIAPtlwBP_5u-YCS6uSl2JDfk7rwaVL4IFaffGLLHGSNUgPP00X0dvFO7wCRJ-GJuLI7Od_5hSwh14Et6rXCtzy9AbmgMd9Q2Fuh_l"/>
+<div>
+<div class="font-bold text-sm">ALPR Curator</div>
+<div class="text-[10px] text-on-surface-variant">Technical Operations</div>
+</div>
+</div>
+</div>
+<div class="space-y-2 flex-grow">
+<a class="flex items-center space-x-3 px-3 py-2.5 rounded-md text-[#607d8b] dark:text-[#b0bec5] hover:text-[#0f1f29] dark:hover:text-white hover:translate-x-1 transition-transform active:scale-95 duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="dashboard">dashboard</span>
+<span>Dashboard</span>
+</a>
+<a class="flex items-center space-x-3 px-3 py-2.5 rounded-md bg-white dark:bg-[#25343f] text-[#0f1f29] dark:text-white shadow-sm active:scale-95 duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="videocam" style="font-variation-settings: 'FILL' 1;">videocam</span>
+<span>Live Monitor</span>
+</a>
+<a class="flex items-center space-x-3 px-3 py-2.5 rounded-md text-[#607d8b] dark:text-[#b0bec5] hover:text-[#0f1f29] dark:hover:text-white hover:translate-x-1 transition-transform active:scale-95 duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="history">history</span>
+<span>Riwayat</span>
+</a>
+<a class="flex items-center space-x-3 px-3 py-2.5 rounded-md text-[#607d8b] dark:text-[#b0bec5] hover:text-[#0f1f29] dark:hover:text-white hover:translate-x-1 transition-transform active:scale-95 duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="directions_car">directions_car</span>
+<span>Kendaraan</span>
+</a>
+<a class="flex items-center space-x-3 px-3 py-2.5 rounded-md text-[#607d8b] dark:text-[#b0bec5] hover:text-[#0f1f29] dark:hover:text-white hover:translate-x-1 transition-transform active:scale-95 duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="settings">settings</span>
+<span>Pengaturan</span>
+</a>
+</div>
+<div class="mt-auto space-y-4 pt-4 border-t border-outline-variant/20">
+<div class="space-y-2">
+<a class="flex items-center space-x-3 px-3 py-2 text-xs text-on-surface-variant hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-[16px]" data-icon="upload_file">upload_file</span>
+<span>Upload</span>
+</a>
+<a class="flex items-center space-x-3 px-3 py-2 text-xs text-on-surface-variant hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-[16px]" data-icon="movie">movie</span>
+<span>Batch Video</span>
+</a>
+<a class="flex items-center space-x-3 px-3 py-2 text-xs text-on-surface-variant hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-[16px]" data-icon="description">description</span>
+<span>Export CSV</span>
+</a>
+</div>
+<button class="w-full bg-surface-container-highest text-on-surface py-2.5 rounded-md text-xs font-bold hover:bg-surface-variant transition-colors flex justify-center items-center space-x-2">
+<span class="material-symbols-outlined text-[16px] text-tertiary-container" data-icon="warning">warning</span>
+<span>Emergency Alert</span>
+</button>
+</div>
+</nav>
+<!-- TopAppBar -->
+<header class="fixed top-0 right-0 left-64 h-16 z-40 bg-[#f5fafa] dark:bg-[#0f1f29] text-[#0f1f29] dark:text-[#f5fafa] font-['Inter'] tracking-tight text-sm shadow-none flex items-center justify-between px-8 w-full border-b border-transparent">
+<div class="flex-1 flex items-center">
+<div class="relative w-64">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">search</span>
+<input class="w-full bg-surface-container-low border-b-2 border-transparent focus:border-primary px-10 py-2 text-sm text-on-surface placeholder-on-surface-variant outline-none transition-colors" placeholder="Search plates, locations..." type="text"/>
+</div>
+</div>
+<div class="flex items-center space-x-6">
+<div class="flex items-center space-x-4">
+<button class="text-[#455a64] dark:text-[#90a4ae] hover:bg-[#dee3e3] dark:hover:bg-[#25343f] transition-all p-2 rounded-full cursor-pointer active:opacity-80">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="text-[#455a64] dark:text-[#90a4ae] hover:bg-[#dee3e3] dark:hover:bg-[#25343f] transition-all p-2 rounded-full cursor-pointer active:opacity-80">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+</div>
+<button class="bg-gradient-to-br from-primary to-primary-container text-on-primary px-4 py-2 rounded-md font-semibold text-sm hover:opacity-90 transition-opacity flex items-center space-x-2">
+<span class="w-2 h-2 rounded-full bg-tertiary-fixed-dim animate-pulse"></span>
+<span>Live Monitor</span>
+</button>
+</div>
+</header>
+<!-- Main Content -->
+<main class="ml-64 mt-16 p-8 flex-1 flex gap-8">
+<!-- Video Grid Area -->
+<div class="flex-1 flex flex-col h-[calc(100vh-8rem)]">
+<div class="flex justify-between items-end mb-6">
+<div>
+<h2 class="text-3xl font-extrabold tracking-tight text-primary">Live Monitor</h2>
+<p class="text-sm text-on-surface-variant mt-1">Real-time video feeds and analytics.</p>
+</div>
+<div class="flex space-x-2">
+<span class="bg-surface-container-highest px-3 py-1 rounded-sm text-xs font-bold tracking-wider text-on-surface flex items-center space-x-1">
+<span class="material-symbols-outlined text-[14px]">grid_view</span>
+<span>2x2</span>
+</span>
+</div>
+</div>
+<!-- Grid -->
+<div class="grid grid-cols-2 grid-rows-2 gap-4 flex-1">
+<!-- Camera 1 -->
+<div class="bg-surface-container-low rounded-lg relative overflow-hidden group shadow-[0_20px_40px_rgba(15,31,41,0.02)]">
+<img alt="Highway traffic camera view" class="w-full h-full object-cover" data-alt="high angle view of a busy highway during daytime, clear weather, vehicles moving, industrial infrastructure" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBTWB-OeG-b-3ypjbGwHuMOmcBrUHAXTmeAjs2WVYVjHJX1an9wIboHN11m3QAVs2CId6LzWIvbH0vt9-7qkgvqf6pZ2jcYuKrMwkSPWYVWQCc3rG-VO71Kx8JMG_hPg1dFznMujs2AOYecQ_Eh1eLD8iTHs0mCKHFVv-uUCHAQ1sOS3ObM5ooIjqkE2hswYsj1jQtUIlfRN6gbPE9c6PGKTBfwz9GYQGJ7mUjewKeos5GpieHnqRZ54Ky9qgRSMuZwb9CaFCkzzhp6"/>
+<div class="absolute top-4 left-4 flex space-x-2 z-10">
+<div class="bg-surface-container-lowest/70 backdrop-blur-md px-2 py-1 rounded-sm text-xs font-bold text-primary flex items-center space-x-1 border border-outline-variant/20">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary-fixed-dim"></span>
+<span>CAM-01</span>
+</div>
+<div class="bg-surface-container-lowest/70 backdrop-blur-md px-2 py-1 rounded-sm text-[10px] font-bold text-on-surface-variant uppercase tracking-wider border border-outline-variant/20">
+                            Jakarta Utara
+                        </div>
+</div>
+<!-- Detection Overlay Hover -->
+<div class="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+<div class="border-2 border-tertiary-fixed-dim w-32 h-16 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></div>
+</div>
+</div>
+<!-- Camera 2 -->
+<div class="bg-surface-container-low rounded-lg relative overflow-hidden shadow-[0_20px_40px_rgba(15,31,41,0.02)]">
+<img alt="City street camera view" class="w-full h-full object-cover" data-alt="urban street scene from an elevated security camera angle, modern city buildings, cars parked and moving" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC73nRZ29dd5jHlXAQpkQ77UUEdtBizuWCU6KBn85HK-qu-kDILlYwM_Coq63NGpGp482a_PXqV74dxqHB4qoFqhooadGUzsm4fuy9se1M6aOAL5xg0s9ONYzjWungc-kp2Kh0iEMilfWUGzIgQdjKgKEgv8SdkjHFpyfc8PolYwhU2KEdss0PV5OUh78flQBRuYCdkpp8vFJbzcgGisrjiYU-U2z478FjTuQViqB6rlkdI5vh6H_DaAO6NGb29P70ExS-BrVe8hgFI"/>
+<div class="absolute top-4 left-4 flex space-x-2 z-10">
+<div class="bg-surface-container-lowest/70 backdrop-blur-md px-2 py-1 rounded-sm text-xs font-bold text-primary flex items-center space-x-1 border border-outline-variant/20">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary-fixed-dim"></span>
+<span>CAM-02</span>
+</div>
+<div class="bg-surface-container-lowest/70 backdrop-blur-md px-2 py-1 rounded-sm text-[10px] font-bold text-on-surface-variant uppercase tracking-wider border border-outline-variant/20">
+                            Jakarta Selatan
+                        </div>
+</div>
+</div>
+<!-- Camera 3 -->
+<div class="bg-surface-container-low rounded-lg relative overflow-hidden shadow-[0_20px_40px_rgba(15,31,41,0.02)]">
+<img alt="Toll gate camera view" class="w-full h-full object-cover" data-alt="toll gate plaza from a security camera perspective, vehicles queuing, bright overcast sky" src="https://lh3.googleusercontent.com/aida-public/AB6AXuABAfoBMTXkpgIpaYf-PKRbSLUA5ws4QT7r_IM2TDIiZNQW-6v0U2yei7q1nJ9nfXcJfT7BxNr3UMmfZyO1rr3mw-L20lZqSlglgeM77CN0gejhISQ0_1CPXij-Mvvq1-_1ZGz0lMTxxpx-853TRVViZLHWfbplC6YRY7wI75MjXTUyZDdDayT4OCts2GvrULZ2OwwfmOp79_eNC-p06eymc-X5koSi9gopALNq7-kf6-2F0bxi_VDL1ypNdrSwz-R0zDfbQqMMjGgN"/>
+<div class="absolute top-4 left-4 flex space-x-2 z-10">
+<div class="bg-surface-container-lowest/70 backdrop-blur-md px-2 py-1 rounded-sm text-xs font-bold text-primary flex items-center space-x-1 border border-outline-variant/20">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary-fixed-dim"></span>
+<span>CAM-03</span>
+</div>
+<div class="bg-surface-container-lowest/70 backdrop-blur-md px-2 py-1 rounded-sm text-[10px] font-bold text-on-surface-variant uppercase tracking-wider border border-outline-variant/20">
+                            Tol Dalam Kota
+                        </div>
+</div>
+</div>
+<!-- Camera 4 -->
+<div class="bg-surface-container-low rounded-lg relative overflow-hidden shadow-[0_20px_40px_rgba(15,31,41,0.02)]">
+<div class="absolute inset-0 bg-surface-container-highest flex flex-col items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined text-4xl mb-2 opacity-50" data-icon="videocam_off">videocam_off</span>
+<span class="text-xs font-bold tracking-wider uppercase">Signal Lost</span>
+</div>
+<div class="absolute top-4 left-4 flex space-x-2 z-10">
+<div class="bg-surface-container-lowest/70 backdrop-blur-md px-2 py-1 rounded-sm text-xs font-bold text-primary flex items-center space-x-1 border border-outline-variant/20">
+<span class="w-1.5 h-1.5 rounded-full bg-outline"></span>
+<span>CAM-04</span>
+</div>
+<div class="bg-surface-container-lowest/70 backdrop-blur-md px-2 py-1 rounded-sm text-[10px] font-bold text-on-surface-variant uppercase tracking-wider border border-outline-variant/20">
+                            Bekasi Barat
+                        </div>
+</div>
+</div>
+</div>
+</div>
+<!-- Sidebar / Logs Area -->
+<div class="w-80 flex flex-col h-[calc(100vh-8rem)]">
+<!-- Metric Card -->
+<div class="bg-surface-container-lowest rounded-lg p-6 mb-6 shadow-[0_20px_40px_rgba(15,31,41,0.03)] border border-outline-variant/20">
+<div class="text-[10px] font-bold uppercase tracking-[0.05em] text-on-surface-variant mb-1">Total Hari Ini</div>
+<div class="text-4xl font-extrabold tracking-tighter text-primary">12,458</div>
+<div class="flex items-center space-x-2 mt-4 text-xs">
+<span class="text-on-surface-variant font-medium">Valid Reads:</span>
+<span class="font-bold text-primary">98.2%</span>
+</div>
+</div>
+<!-- Realtime Logs -->
+<div class="flex-1 bg-surface-container-lowest rounded-lg shadow-[0_20px_40px_rgba(15,31,41,0.03)] border border-outline-variant/20 flex flex-col overflow-hidden">
+<div class="px-5 py-4 bg-surface-container-low border-b border-outline-variant/20 flex justify-between items-center">
+<h3 class="text-sm font-bold text-primary">Realtime Logs</h3>
+<span class="w-2 h-2 rounded-full bg-tertiary-fixed-dim animate-pulse"></span>
+</div>
+<div class="flex-1 overflow-y-auto p-4 space-y-3">
+<!-- Log Item 1 -->
+<div class="bg-surface-container-low rounded-md p-3 border border-outline-variant/20 flex items-start space-x-3">
+<img alt="Car plate crop" class="w-12 h-10 object-cover rounded-sm border border-outline-variant/30" data-alt="close up of a vehicle license plate, slightly blurry from motion, neutral lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDx_NqSHOGprGYQKqcGb0b-_PCPLuTSZ8e4SR7-SBL5loGanrtspqjz3vmRRhW5Qu9xg1hNdP1mhy6f49p3_j7wxursa7fskTmVYRt1eQSyXpckDHw4-ABXApzdFnSlhVbw2dyGbtLISJhZXBgDJSz81esbtmjXYChybD2fVnLSaczeBNTgtHzO5yZl6J3KlJhLOrgxmPEI6Am1BOdslNF359bTztUaLw4Leoibv20KQDmZkVYBCXXVT7Gs_kxeUTQk0nQktnPZw-Kp"/>
+<div class="flex-1 min-w-0">
+<div class="flex justify-between items-baseline mb-1">
+<span class="text-sm font-bold text-primary truncate">B 1234 XYZ</span>
+<span class="text-[10px] text-on-surface-variant">Just now</span>
+</div>
+<div class="flex space-x-2">
+<span class="text-[9px] bg-surface-container-highest px-1.5 py-0.5 rounded-sm font-semibold text-on-surface-variant">CAM-01</span>
+<span class="text-[9px] bg-secondary-container px-1.5 py-0.5 rounded-sm font-semibold text-on-secondary-container">CONF 99%</span>
+</div>
+</div>
+</div>
+<!-- Log Item 2 -->
+<div class="bg-surface-container-low rounded-md p-3 border border-tertiary-fixed-dim/50 flex items-start space-x-3 relative overflow-hidden">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-tertiary-fixed-dim"></div>
+<img alt="Car plate crop" class="w-12 h-10 object-cover rounded-sm border border-outline-variant/30 ml-1" data-alt="close up of a silver car license plate, sharp focus, clear daytime lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB_q0HtnUuOZmmTQDQlOCdDBsnh79RFGrMlbz9aA5vVfqLiIzdYQklrfi46OcMyd_jcJUUc2ZwQoy7ik-VS84BiTkG7OqsSmpjiFzuGkzeTqjBxVhLzgm9S7GUqUpNP4XxbNdH0qPpakKoZrkoqhqvd5D2v2J9ydS_k6wTZfffjLsj6hDhUuTagv8OIkJEsItrApzqRPSPvWEgumwEF87IM9gSjs7fpqSxxUal0JvHZgOUs5rzJAkyGO4XJ4VouhTZqQmr3Zcvkr_ID"/>
+<div class="flex-1 min-w-0">
+<div class="flex justify-between items-baseline mb-1">
+<span class="text-sm font-bold text-primary truncate">D 4455 AA</span>
+<span class="text-[10px] text-tertiary-container font-bold">Flagged</span>
+</div>
+<div class="flex space-x-2">
+<span class="text-[9px] bg-surface-container-highest px-1.5 py-0.5 rounded-sm font-semibold text-on-surface-variant">CAM-02</span>
+<span class="text-[9px] bg-tertiary-container/10 px-1.5 py-0.5 rounded-sm font-semibold text-tertiary-container">WANTED</span>
+</div>
+</div>
+</div>
+<!-- Log Item 3 -->
+<div class="bg-surface-container-low rounded-md p-3 border border-outline-variant/20 flex items-start space-x-3">
+<img alt="Car plate crop" class="w-12 h-10 object-cover rounded-sm border border-outline-variant/30" data-alt="close up of a commercial truck license plate, slightly dusty, daylight" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBDgMnFWw127iR-mroZ1070W-ImxZe5fxM1MKCqoz9rDJNP_6VC1w8cfjppDoZwVOXnM_yr5DBbhP3ybM-Zd6wkqNjo1RvPl1hxwuiaI8pk6Z42kk9t986p4cOuqBPxQq1zzot2cvoGQtpFGlUdGqg-o58FQFlv6Xnv3EVcevFQFnl6zjHabwWdLB3o2afdn2RucXjBjEPYUVE6t4_b89LQpF9woAjs5UOS0jqUgu-BK8sFB8JH327SiewboloN_Cb3nsP5CAyzfv5e"/>
+<div class="flex-1 min-w-0">
+<div class="flex justify-between items-baseline mb-1">
+<span class="text-sm font-bold text-primary truncate">F 8899 GHI</span>
+<span class="text-[10px] text-on-surface-variant">2m ago</span>
+</div>
+<div class="flex space-x-2">
+<span class="text-[9px] bg-surface-container-highest px-1.5 py-0.5 rounded-sm font-semibold text-on-surface-variant">CAM-03</span>
+<span class="text-[9px] bg-secondary-container px-1.5 py-0.5 rounded-sm font-semibold text-on-secondary-container">CONF 95%</span>
+</div>
+</div>
+</div>
+<!-- Log Item 4 -->
+<div class="bg-surface-container-low rounded-md p-3 border border-outline-variant/20 flex items-start space-x-3">
+<div class="w-12 h-10 bg-surface-container-highest rounded-sm border border-outline-variant/30 flex items-center justify-center">
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant opacity-50" data-icon="image">image</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex justify-between items-baseline mb-1">
+<span class="text-sm font-bold text-on-surface-variant truncate italic">Unreadable</span>
+<span class="text-[10px] text-on-surface-variant">5m ago</span>
+</div>
+<div class="flex space-x-2">
+<span class="text-[9px] bg-surface-container-highest px-1.5 py-0.5 rounded-sm font-semibold text-on-surface-variant">CAM-01</span>
+<span class="text-[9px] bg-surface-variant px-1.5 py-0.5 rounded-sm font-semibold text-on-surface-variant">LOW VIS</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

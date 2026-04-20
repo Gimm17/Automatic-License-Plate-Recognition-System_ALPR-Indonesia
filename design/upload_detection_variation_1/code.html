@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ALPR Indonesia - Upload Detection</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary-container": "#8d9caa",
+                    "secondary-fixed-dim": "#bec8d0",
+                    "on-surface-variant": "#43474b",
+                    "inverse-on-surface": "#edf2f2",
+                    "on-surface": "#171d1d",
+                    "outline": "#74777c",
+                    "on-secondary-container": "#5a646b",
+                    "on-primary-fixed": "#0e1d27",
+                    "tertiary-fixed-dim": "#ffb786",
+                    "on-tertiary-fixed": "#311400",
+                    "secondary": "#566067",
+                    "on-tertiary-fixed-variant": "#723600",
+                    "on-primary": "#ffffff",
+                    "on-background": "#171d1d",
+                    "background": "#f5fafa",
+                    "error-container": "#ffdad6",
+                    "primary-fixed": "#d4e5f3",
+                    "surface-variant": "#dee3e3",
+                    "surface-container-low": "#f0f5f4",
+                    "surface-container-lowest": "#ffffff",
+                    "inverse-primary": "#b8c9d7",
+                    "secondary-container": "#d7e1e9",
+                    "on-error": "#ffffff",
+                    "primary-container": "#25343f",
+                    "primary": "#0f1f29",
+                    "on-tertiary-container": "#e1833b",
+                    "tertiary-container": "#532600",
+                    "on-tertiary": "#ffffff",
+                    "on-secondary-fixed": "#131d23",
+                    "on-secondary-fixed-variant": "#3e484f",
+                    "primary-fixed-dim": "#b8c9d7",
+                    "surface-container": "#eaefef",
+                    "tertiary": "#331500",
+                    "error": "#ba1a1a",
+                    "on-primary-fixed-variant": "#3a4954",
+                    "surface-container-highest": "#dee3e3",
+                    "surface-dim": "#d6dbdb",
+                    "on-secondary": "#ffffff",
+                    "surface-tint": "#51606c",
+                    "surface-bright": "#f5fafa",
+                    "outline-variant": "#c3c7cb",
+                    "inverse-surface": "#2c3132",
+                    "on-error-container": "#93000a",
+                    "tertiary-fixed": "#ffdcc6",
+                    "surface-container-high": "#e4e9e9",
+                    "secondary-fixed": "#dae4ec",
+                    "surface": "#f5fafa"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {},
+            "fontFamily": {
+                    "headline": ["Inter"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style type="text/tailwindcss">
+        @layer utilities {
+            .glass-panel {
+                @apply bg-surface-container-lowest/70 backdrop-blur-md shadow-[0_20px_40px_rgba(15,31,41,0.06)];
+            }
+            .ambient-shadow {
+                @apply shadow-[0_20px_40px_rgba(15,31,41,0.06)];
+            }
+            .ghost-border {
+                @apply border border-outline-variant/20;
+            }
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body h-screen w-full overflow-hidden flex">
+<!-- SideNavBar (Shared Component) -->
+<nav class="fixed left-0 top-0 h-screen w-64 z-50 bg-[#f0f5f4] dark:bg-[#13232c] shadow-[4px_0_24px_rgba(15,31,41,0.04)] flex flex-col p-6 space-y-4">
+<!-- Brand Header -->
+<div class="mb-8">
+<h1 class="text-lg font-black text-[#0f1f29] dark:text-white tracking-tighter">ALPR Curator</h1>
+<p class="text-xs font-medium text-on-surface-variant uppercase tracking-[0.05em] mt-1">Technical Operations</p>
+</div>
+<!-- Main Navigation -->
+<div class="flex-1 space-y-2">
+<a class="flex items-center gap-3 px-3 py-2 text-[#607d8b] dark:text-[#b0bec5] hover:text-[#0f1f29] dark:hover:text-white hover:translate-x-1 transition-transform active:scale-95 duration-150 font-['Inter'] font-medium text-[13px] uppercase tracking-wider group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">dashboard</span>
+                Dashboard
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-[#607d8b] dark:text-[#b0bec5] hover:text-[#0f1f29] dark:hover:text-white hover:translate-x-1 transition-transform active:scale-95 duration-150 font-['Inter'] font-medium text-[13px] uppercase tracking-wider group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">videocam</span>
+                Live Monitor
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-[#607d8b] dark:text-[#b0bec5] hover:text-[#0f1f29] dark:hover:text-white hover:translate-x-1 transition-transform active:scale-95 duration-150 font-['Inter'] font-medium text-[13px] uppercase tracking-wider group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">history</span>
+                Riwayat
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-[#607d8b] dark:text-[#b0bec5] hover:text-[#0f1f29] dark:hover:text-white hover:translate-x-1 transition-transform active:scale-95 duration-150 font-['Inter'] font-medium text-[13px] uppercase tracking-wider group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">directions_car</span>
+                Kendaraan
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-[#607d8b] dark:text-[#b0bec5] hover:text-[#0f1f29] dark:hover:text-white hover:translate-x-1 transition-transform active:scale-95 duration-150 font-['Inter'] font-medium text-[13px] uppercase tracking-wider group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">settings</span>
+                Pengaturan
+            </a>
+</div>
+<!-- Footer Tools -->
+<div class="mt-auto space-y-2 pt-6 border-t border-outline-variant/20">
+<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest px-3 mb-3">Data Ingestion</p>
+<!-- Active State Navigation -->
+<a class="flex items-center gap-3 px-3 py-2 bg-white dark:bg-[#25343f] text-[#0f1f29] dark:text-white rounded-md shadow-sm active:scale-95 duration-150 font-['Inter'] font-medium text-[13px] uppercase tracking-wider" href="#">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">upload_file</span>
+                Upload
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-[#607d8b] dark:text-[#b0bec5] hover:text-[#0f1f29] dark:hover:text-white hover:translate-x-1 transition-transform active:scale-95 duration-150 font-['Inter'] font-medium text-[13px] uppercase tracking-wider group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">movie</span>
+                Batch Video
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-[#607d8b] dark:text-[#b0bec5] hover:text-[#0f1f29] dark:hover:text-white hover:translate-x-1 transition-transform active:scale-95 duration-150 font-['Inter'] font-medium text-[13px] uppercase tracking-wider group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">description</span>
+                Export CSV
+            </a>
+<div class="pt-4 mt-2">
+<button class="w-full py-2.5 px-4 bg-tertiary-fixed-dim text-on-tertiary-fixed font-bold text-xs uppercase tracking-wider rounded-lg active:scale-95 transition-transform">
+                    Emergency Alert
+                </button>
+</div>
+</div>
+</nav>
+<!-- Main Workspace Area -->
+<div class="flex-1 flex flex-col ml-64 bg-[#f5fafa]">
+<!-- TopAppBar (Shared Component) -->
+<header class="fixed top-0 right-0 left-64 h-16 z-40 bg-[#f5fafa] dark:bg-[#0f1f29] shadow-none border-b border-outline-variant/10 flex items-center justify-between px-8">
+<div class="flex items-center gap-6">
+<!-- Search Bar -->
+<div class="relative bg-surface-container-low rounded-full flex items-center px-4 py-1.5 focus-within:ring-2 ring-primary/20 transition-all">
+<span class="material-symbols-outlined text-on-surface-variant text-sm mr-2">search</span>
+<input class="bg-transparent border-none text-sm focus:ring-0 text-primary placeholder-on-surface-variant w-64 p-0" placeholder="Search plates, locations..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-6 text-[#0f1f29] dark:text-[#f5fafa] font-['Inter'] tracking-tight text-sm">
+<!-- Trailing Primary Action -->
+<button class="font-bold text-primary border-b-2 border-[#ffb786] pb-1 hover:bg-[#dee3e3] dark:hover:bg-[#25343f] transition-all cursor-pointer active:opacity-80 px-2">
+                    Live Monitor
+                </button>
+<!-- Trailing Icon Actions -->
+<div class="flex items-center gap-3">
+<button class="p-2 rounded-full hover:bg-[#dee3e3] dark:hover:bg-[#25343f] transition-all cursor-pointer active:opacity-80 flex items-center justify-center text-[#455a64] dark:text-[#90a4ae]">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 rounded-full hover:bg-[#dee3e3] dark:hover:bg-[#25343f] transition-all cursor-pointer active:opacity-80 flex items-center justify-center text-[#455a64] dark:text-[#90a4ae]">
+<span class="material-symbols-outlined">settings</span>
+</button>
+</div>
+<!-- Profile -->
+<div class="h-8 w-8 rounded-full overflow-hidden ghost-border cursor-pointer active:scale-95 transition-transform">
+<img alt="System Operator" class="h-full w-full object-cover" data-alt="Professional headshot of a technical operator in a control room, soft dramatic lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAg4VUqQFKUgPOCiJI3xrz_Pv3hoIJajeuNSiQZh9R_P4i09TbThiSSqtfXFzAkf9I-yuFbR2t6QIt1Kh8p-SA7ww1Tzvvk8GWEyrKUBbGfsUv3Q9VpGGCEg-BF0hUCTgYu_EjtruwhYubPnhBSZZVUvmdNAvKYSydzGTR_cZLWwQM-fjl2nI2QKbkKGR6XXlk0T3wJC8Y_qiOduN81UZ4X9Hirjr3zZ01FY779T4nMfANvANzUsJ80tgZc0sbq5hoR72SWTL168Ab2"/>
+</div>
+</div>
+</header>
+<!-- Canvas (Main Content) -->
+<main class="flex-1 p-8 mt-16 overflow-y-auto w-full max-w-7xl mx-auto space-y-12 pb-24">
+<!-- Page Header -->
+<div class="flex items-end justify-between w-full">
+<div>
+<h2 class="text-3xl font-headline font-bold text-primary tracking-[-0.02em]">Data Ingestion Node</h2>
+<p class="text-sm text-on-surface-variant mt-2 font-medium">Upload static imagery for high-precision plate extraction.</p>
+</div>
+</div>
+<!-- Upload Area (Centered, High Contrast) -->
+<div class="w-full bg-surface-container-lowest rounded-xl p-16 flex flex-col items-center justify-center border-2 border-dashed border-outline-variant/30 hover:border-primary/40 transition-colors cursor-pointer group relative overflow-hidden">
+<!-- Decorative background elements -->
+<div class="absolute -top-24 -right-24 w-64 h-64 bg-surface-container-low rounded-full blur-3xl opacity-50"></div>
+<div class="absolute -bottom-24 -left-24 w-64 h-64 bg-primary-fixed/20 rounded-full blur-3xl opacity-50"></div>
+<div class="h-20 w-20 rounded-full bg-surface-container-low flex items-center justify-center mb-6 group-hover:scale-105 transition-transform duration-300">
+<span class="material-symbols-outlined text-4xl text-primary" style="font-variation-settings: 'wght' 300;">cloud_upload</span>
+</div>
+<h3 class="text-xl font-bold text-primary tracking-tight mb-2">Drag &amp; Drop Imagery</h3>
+<p class="text-sm text-on-surface-variant mb-8 text-center max-w-md">
+                    Support for high-resolution JPG, PNG, and TIFF files. Multi-vehicle imagery will be automatically segmented.
+                </p>
+<button class="px-6 py-2.5 bg-gradient-to-br from-primary to-primary-container text-on-primary font-medium text-sm rounded-lg shadow-sm active:scale-95 transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">folder_open</span>
+                    Browse Local Files
+                </button>
+</div>
+<!-- Results Section (Bento Grid) -->
+<div class="space-y-6">
+<div class="flex items-center gap-3">
+<h3 class="text-lg font-bold text-primary tracking-tight">Active Analysis Session</h3>
+<div class="h-px bg-outline-variant/20 flex-1"></div>
+<span class="text-xs font-bold text-on-surface-variant uppercase tracking-widest bg-surface-container-low px-2 py-1 rounded-md">ID: REQ-8992</span>
+</div>
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+<!-- Annotated Image Viewer (Spans 2 columns) -->
+<div class="xl:col-span-2 bg-surface-container-lowest rounded-xl overflow-hidden ambient-shadow flex flex-col relative min-h-[400px]">
+<!-- Top Action Bar inside Image Viewer -->
+<div class="absolute top-0 w-full z-10 p-4 flex justify-between items-start pointer-events-none">
+<div class="glass-panel px-3 py-1.5 rounded-md pointer-events-auto flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-sm">center_focus_strong</span>
+<span class="text-xs font-bold text-primary tracking-wider uppercase">Auto-Focus Mode</span>
+</div>
+<button class="glass-panel h-8 w-8 rounded-full flex items-center justify-center pointer-events-auto hover:bg-surface-container-lowest transition-colors">
+<span class="material-symbols-outlined text-primary text-sm">fullscreen</span>
+</button>
+</div>
+<!-- Image Container -->
+<div class="flex-1 relative bg-surface-container-low w-full h-full flex items-center justify-center overflow-hidden">
+<img alt="Source vehicle image" class="w-full h-full object-cover" data-alt="High angle view of a dark grey SUV driving on a modern highway overpass, daylight, realistic sharp focus on the front of the vehicle" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCOu0HPuJlAEGWzqcG5wYQjvvspnRSyTgpoKix8MtaXiF6yqPCOW2aYECQwWn1ceC6w49CHFcqx6By9S5n1FZOsMelvLcoyCaUYvwEVb7UdYLjQgeDwqcVRqdey2VpK0mOvIDLNoQCQX-PXvQTxs-e79jQ3teDW3Vl-t7HOOQ4huVjM_rH-fGAPKT3YZ8x0lE414hDPDxkHO4bQ3P-IxbS5lnRYfRt9T9CHqHNKPK2QQaO4AdFZLog-sOx-pZTkcGMK4uD8rfSJ8-Yi"/>
+<!-- Bounding Box Annotation -->
+<div class="absolute top-[60%] left-[45%] w-[12%] h-[8%] border-[3px] border-tertiary-fixed-dim bg-tertiary-fixed-dim/20 rounded-sm pointer-events-auto cursor-crosshair group/box">
+<!-- Corner handles -->
+<div class="absolute -top-1 -left-1 w-2 h-2 bg-white border border-primary"></div>
+<div class="absolute -top-1 -right-1 w-2 h-2 bg-white border border-primary"></div>
+<div class="absolute -bottom-1 -left-1 w-2 h-2 bg-white border border-primary"></div>
+<div class="absolute -bottom-1 -right-1 w-2 h-2 bg-white border border-primary"></div>
+<!-- Hover Label -->
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover/box:opacity-100 transition-opacity whitespace-nowrap bg-primary text-on-primary text-[10px] font-bold px-2 py-1 rounded shadow-md uppercase tracking-wider">
+                                    Target Plate
+                                </div>
+</div>
+</div>
+</div>
+<!-- Extraction Data Panel -->
+<div class="bg-surface-container-lowest rounded-xl p-6 ambient-shadow flex flex-col h-full">
+<div class="flex items-center justify-between mb-8">
+<h4 class="text-sm font-bold text-on-surface-variant uppercase tracking-[0.05em]">Extraction Data</h4>
+<div class="bg-tertiary-container/10 text-tertiary px-2 py-1 rounded text-xs font-bold uppercase tracking-wider flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">flag</span>
+                                Flagged
+                            </div>
+</div>
+<!-- Primary Extracted Data -->
+<div class="mb-8">
+<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.05em] mb-1">Detected Plate Sequence</p>
+<div class="w-full border-2 border-primary bg-surface-container-low rounded-lg p-3 text-center mb-2">
+<span class="text-3xl font-black text-primary tracking-[-0.02em] font-mono">B 1234 XYZ</span>
+</div>
+<!-- Confidence Meter -->
+<div class="flex items-center justify-between text-xs mb-1">
+<span class="text-on-surface-variant font-medium">Algorithm Confidence</span>
+<span class="font-bold text-primary">98.5%</span>
+</div>
+<div class="h-1.5 w-full bg-surface-container-low rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[98.5%] rounded-full"></div>
+</div>
+</div>
+<!-- Metadata List (No lines, tonal hierarchy) -->
+<div class="flex-1 space-y-4">
+<div class="flex flex-col">
+<span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.05em]">Region Code Mapping</span>
+<span class="text-sm font-semibold text-primary mt-0.5">DKI Jakarta</span>
+</div>
+<div class="flex flex-col">
+<span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.05em]">Vehicle Classification</span>
+<span class="text-sm font-semibold text-primary mt-0.5">Passenger / SUV - Dark Grey</span>
+</div>
+<div class="flex flex-col">
+<span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.05em]">Capture Timestamp</span>
+<span class="text-sm font-semibold text-primary mt-0.5 font-mono">2023-10-27 14:32:01.442</span>
+</div>
+</div>
+<!-- Action Area -->
+<div class="mt-8 pt-4 flex gap-3">
+<button class="flex-1 py-2.5 bg-gradient-to-br from-primary to-primary-container text-on-primary font-medium text-sm rounded-lg shadow-sm active:scale-95 transition-all">
+                                Validate &amp; Commit
+                            </button>
+<button class="w-12 h-10 flex items-center justify-center bg-surface-container-low text-on-surface hover:bg-surface-container-highest rounded-lg transition-colors active:scale-95">
+<span class="material-symbols-outlined text-sm">edit</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.so
+.venv/
+venv/
+env/
+
+# Environment files
+.env
+*.env.local
+
+# ML Models (download separately, too large for git)
+backend/ml_models/*.pt
+backend/ml_models/*.onnx
+!backend/ml_models/.gitkeep
+
+# Storage (generated files)
+backend/storage/temp/*
+backend/storage/results/*
+backend/storage/exports/*
+!backend/storage/**/.gitkeep
+
+# ML dataset
+ml/dataset/images/train/*
+ml/dataset/images/val/*
+ml/dataset/labels/train/*
+ml/dataset/labels/val/*
+!ml/dataset/**/.gitkeep
+
+# YOLO training runs
+runs/
+
+# Node / Frontend
+node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/node_modules/
+
+# Build artifacts
+*.log
+*.pid
+
+# IDE
+.vscode/settings.json
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Paddle
+.paddleocr/
