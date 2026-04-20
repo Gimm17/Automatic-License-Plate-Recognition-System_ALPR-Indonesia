@@ -13,13 +13,9 @@
       <!-- Fixed TopNav -->
       <TopNav @notifications="handleNotifications" />
 
-      <!-- Scrollable page content -->
+      <!-- Scrollable page content — slot for views that wrap MainLayout -->
       <main class="layout-content">
-        <RouterView v-slot="{ Component, route }">
-          <Transition name="page" mode="out-in">
-            <component :is="Component" :key="route.path" />
-          </Transition>
-        </RouterView>
+        <slot />
       </main>
     </div>
 
