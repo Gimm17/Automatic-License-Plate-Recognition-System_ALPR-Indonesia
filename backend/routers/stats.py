@@ -16,7 +16,7 @@ from datetime import datetime, timedelta, date
 from typing import Optional
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import func, and_
+from sqlalchemy import func, and_, case
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -130,10 +130,10 @@ async def get_chart_data(
             func.date(Detection.detected_at).label("day"),
             func.count(Detection.id).label("total"),
             func.sum(
-                func.if_(Detection.status == "valid", 1, 0)
+                case((Detection.status == "valid", 1), else_=0)
             ).label("valid"),
             func.sum(
-                func.if_(Detection.status == "watchlist", 1, 0)
+                case((Detection.status == "watchlist", 1), else_=0)
             ).label("watchlist"),
         )
         .filter(Detection.detected_at >= since)

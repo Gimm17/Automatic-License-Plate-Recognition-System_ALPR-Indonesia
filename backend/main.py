@@ -61,22 +61,34 @@ async def lifespan(app: FastAPI):
         logger.warning("Database NOT reachable at startup — some endpoints will fail")
 
     # Initialize ML services (singleton, shared via app.state)
-    logger.info("Initializing YOLOService …")
-    app.state.yolo = YOLOService(
-        model_path=settings.yolo_model_full_path,
-        conf_threshold=settings.YOLO_CONFIDENCE,
-    )
+    # Wrapped in try/except so backend starts even if ultralytics/paddleocr are not yet installed
+    try:
+        logger.info("Initializing YOLOService …")
+        app.state.yolo = YOLOService(
+            model_path=settings.yolo_model_full_path,
+            conf_threshold=settings.YOLO_CONFIDENCE,
+        )
 
-    logger.info("Initializing OCRService …")
-    app.state.ocr = OCRService(language=settings.OCR_LANGUAGE)
+        logger.info("Initializing OCRService …")
+        app.state.ocr = OCRService(language=settings.OCR_LANGUAGE)
 
-    logger.info("Initializing StreamService …")
-    app.state.stream = StreamService(
-        yolo_service=app.state.yolo,
-        ocr_service=app.state.ocr,
-    )
+        logger.info("Initializing StreamService …")
+        app.state.stream = StreamService(
+            yolo_service=app.state.yolo,
+            ocr_service=app.state.ocr,
+        )
 
-    logger.info("=== All services ready ===")
+        logger.info("=== All services ready ===")
+    except Exception as e:
+        logger.warning(
+            f"⚠️  ML services could not be initialized: {e}\n"
+            "  → Detection/stream endpoints will return 503.\n"
+            "  → Install ultralytics & paddleocr to enable ML features."
+        )
+        app.state.yolo   = None
+        app.state.ocr    = None
+        app.state.stream = None
+
     yield
 
     logger.info("=== ALPR Indonesia shutting down ===")

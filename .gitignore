@@ -56,3 +56,5 @@ Thumbs.db
 
 # Paddle
 .paddleocr/
+
+backend/storage/*.db

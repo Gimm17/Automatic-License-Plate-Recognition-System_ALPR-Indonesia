@@ -171,68 +171,22 @@ const statsStore     = useStatsStore()
 const cameraStore    = useCameraStore()
 const detectionStore = useDetectionStore()
 
-// ─── Metric cards: live from API, fallback to dummy when offline ─────────────
-const DUMMY_STATS = { total_detections: 14289, ocr_accuracy: 98.4, avg_latency_ms: 124, watchlist_hits: 3 }
-const stats = computed(() => statsStore.summary || DUMMY_STATS)
+// ─── Metric cards: live from API only ───────────────────────────────────────
+const EMPTY_STATS = { total_detections: 0, ocr_accuracy: 0, avg_latency_ms: 0, watchlist_hits: 0 }
+const stats = computed(() => statsStore.summary || EMPTY_STATS)
 
-// ─── Detection log items (live from API, fallback to dummy) ──────────────────
-const DUMMY_LOG = [
-  { id: 1, plate_text: 'B 1234 XYZ', status: 'valid',     detected_at: new Date(Date.now() - 1*60000).toISOString() },
-  { id: 2, plate_text: 'D 8888 AA',  status: 'watchlist', detected_at: new Date(Date.now() - 2*60000).toISOString() },
-  { id: 3, plate_text: 'F 5678 BCD', status: 'valid',     detected_at: new Date(Date.now() - 4*60000).toISOString() },
-  { id: 4, plate_text: 'AB 123 CD',  status: 'valid',     detected_at: new Date(Date.now() - 6*60000).toISOString() },
-  { id: 5, plate_text: '???',        status: 'ocr_failed',detected_at: new Date(Date.now() - 8*60000).toISOString() },
-  { id: 6, plate_text: 'L 9999 XY',  status: 'watchlist', detected_at: new Date(Date.now() - 10*60000).toISOString() },
-]
-const logItems = computed(() =>
-  detectionStore.detections.length ? detectionStore.detections : DUMMY_LOG
-)
+// ─── Detection log items (live from API only) ─────────────────────────────────
+const logItems = computed(() => detectionStore.detections)
 
-// ─── Chart data (live from API, fallback to generated dummy) ─────────────────
-const DUMMY_CHART = (() => {
-  const days = []
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date()
-    d.setDate(d.getDate() - i)
-    const total = Math.floor(Math.random() * 3000) + 11000
-    const watchlist = Math.floor(Math.random() * 30) + 5
-    days.push({ date: d.toISOString().slice(0, 10), total, valid: total - watchlist - 30, watchlist })
-  }
-  return days
-})()
-const chartItems = computed(() =>
-  statsStore.chartData?.length ? statsStore.chartData : DUMMY_CHART
-)
+// ─── Chart data (live from API only) ─────────────────────────────────────────
+const chartItems = computed(() => statsStore.chartData || [])
 
-// ─── Source / Region breakdown ───────────────────────────────────────────────
-const DUMMY_SOURCE = [
-  { source: 'stream', count: 9821 }, { source: 'upload', count: 3102 }, { source: 'video_batch', count: 1366 },
-]
-const DUMMY_REGION = [
-  { region_code: 'B',  region: 'DKI Jakarta', count: 4210 },
-  { region_code: 'D',  region: 'Bandung',     count: 2841 },
-  { region_code: 'L',  region: 'Surabaya',    count: 2103 },
-]
-const sourceItems = computed(() => statsStore.cameraData?.length ? statsStore.cameraData : DUMMY_SOURCE)
-const regionItems = computed(() => statsStore.regionData?.length ? statsStore.regionData : DUMMY_REGION)
+// ─── Source / Region breakdown (live from API only) ──────────────────────────
+const sourceItems = computed(() => statsStore.cameraData || [])
+const regionItems = computed(() => statsStore.regionData || [])
 
-// ─── Camera status row ───────────────────────────────────────────────────────
-const DUMMY_CAMERAS = [
-  { id: 1, name: 'Pintu Masuk Utama', location: 'Gate A',  online: true,  detections_today: 5823 },
-  { id: 2, name: 'Pintu Keluar',      location: 'Gate B',  online: true,  detections_today: 4511 },
-  { id: 3, name: 'Parkir Basement',   location: 'B1',      online: false, detections_today: 0    },
-  { id: 4, name: 'Area Tamu',         location: 'Lobby',   online: true,  detections_today: 3955 },
-]
-const cameraItems = computed(() =>
-  cameraStore.cameras.length ? cameraStore.cameras : DUMMY_CAMERAS
-)
-
-// ─── Demo live annotation (rotates regardless of WS) ────────────────────────
-const demoAnnotation = reactive({
-  show: true, plate: 'B 1234 XYZ', conf: 99, type: 'SUV', region: 'DKI Jakarta',
-})
-const plates = ['B 1234 XYZ', 'D 8888 AA', 'F 5678 BCD', 'L 9999 XY', 'AB 123 CD']
-let plateTimer = null
+// ─── Camera status row (live from API only) ───────────────────────────────────
+const cameraItems = computed(() => cameraStore.cameras)
 
 // ─── Handlers ────────────────────────────────────────────────────────────────
 function handleRefresh() { detectionStore.fetchDetections() }
@@ -240,22 +194,16 @@ function handleDetectionSelect(item) { /* TODO: open global detail drawer */ }
 
 // ─── Lifecycle ───────────────────────────────────────────────────────────────
 onMounted(() => {
-  // Start stats auto-refresh (30s); silently fails when backend offline
+  // Start stats auto-refresh (30s)
   statsStore.startAutoRefresh(30_000)
   // Fetch cameras for status row
   cameraStore.fetchCameras()
   // Fetch recent detections for log
   detectionStore.fetchDetections()
-  // Animate annotation plate
-  plateTimer = setInterval(() => {
-    demoAnnotation.plate = plates[Math.floor(Math.random() * plates.length)]
-    demoAnnotation.conf  = Math.floor(Math.random() * 5) + 95
-  }, 2500)
 })
 
 onUnmounted(() => {
   statsStore.stopAutoRefresh()
-  clearInterval(plateTimer)
 })
 </script>
 
