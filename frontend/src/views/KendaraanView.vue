@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <MainLayout>
     <div class="kendaraan-page">
 
@@ -322,43 +322,51 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import MainLayout from '@/components/layout/MainLayout.vue'
+import { useVehicleStore } from '@/stores/vehicle'
+
+const vehicleStore = useVehicleStore()
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const REGIONS_LIST = [
   'DKI Jakarta', 'Jawa Barat', 'Jawa Tengah', 'Jawa Timur',
   'Yogyakarta', 'Banten', 'Bali', 'Sumatera Utara', 'Sulawesi Selatan',
 ]
-const OWNERS = ['Budi Santoso', 'Dewi Rahayu', 'Ahmad Fauzi', 'Siti Nurhaliza', 'Eko Prasetyo', 'Rina Wati', 'Hendra Gunawan', 'Maya Sari']
-const PLATES = ['B 1234 ABC', 'D 5678 XYZ', 'L 9012 QRS', 'AB 3344 TT', 'F 8877 GG', 'N 4321 PP', 'B 5566 KK', 'T 7890 MN', 'AG 2233 LL', 'BK 4455 JJ']
 
-// ─── Dummy data ────────────────────────────────────────────────────────────────
-function makeDummy(n = 60) {
+// ─── Dummy data (static fallback when backend offline) ────────────────────────
+const OWNERS = ['Budi Santoso', 'Dewi Rahayu', 'Ahmad Fauzi', 'Siti Nurhaliza', 'Eko Prasetyo', 'Rina Wati', 'Hendra Gunawan', 'Maya Sari']
+const PLATES = ['B 1234 ABC', 'D 5678 XYZ', 'L 9012 QRS', 'AB 3344 TT', 'F 8877 GG', 'N 4321 PP', 'B 5566 KK', 'T 7890 MN']
+
+function makeDummy(n = 40) {
   const statuses = ['whitelist', 'whitelist', 'whitelist', 'watchlist', 'blacklist']
   const types    = ['Sedan', 'SUV', 'MPV', 'Pickup', 'Motor', 'Truk']
-  const rows = []
-  for (let i = 0; i < n; i++) {
+  return Array.from({ length: n }, (_, i) => {
     const d = new Date()
-    d.setDate(d.getDate() - Math.floor(Math.random() * 365))
-    rows.push({
-      id:             i + 1,
-      plate:          PLATES[Math.floor(Math.random() * PLATES.length)] + `-${i}`,
-      owner:          OWNERS[Math.floor(Math.random() * OWNERS.length)],
-      region:         REGIONS_LIST[Math.floor(Math.random() * REGIONS_LIST.length)],
-      vehicle_type:   types[Math.floor(Math.random() * types.length)],
-      status:         statuses[Math.floor(Math.random() * statuses.length)],
-      registered_at:  d.toISOString(),
-      notes:          '',
-    })
-  }
-  return rows
+    d.setDate(d.getDate() - Math.floor(Math.random() * 180))
+    return {
+      id: i + 1,
+      plate: PLATES[i % PLATES.length] + `-${i}`,
+      owner: OWNERS[i % OWNERS.length],
+      region: REGIONS_LIST[i % REGIONS_LIST.length],
+      vehicle_type: types[i % types.length],
+      status: statuses[i % statuses.length],
+      registered_at: d.toISOString(),
+      notes: '',
+    }
+  })
 }
 
-const allRows = ref(makeDummy(60))
-const loading = ref(false)
+// Local state for offline-mode or optimistic edits
+const localRows = ref([])
+const loading   = computed(() => vehicleStore.loading)
 
-// ─── Tabs ──────────────────────────────────────────────────────────────────────
+// Merge: prefer API data, fallback to dummy
+const allRows = computed(() =>
+  vehicleStore.vehicles.length ? vehicleStore.vehicles : localRows.value
+)
+
+// ─── Tabs ─────────────────────────────────────────────────────────────────────
 const tabs = [
   { key: '',           label: 'Semua',     icon: 'list' },
   { key: 'whitelist',  label: 'Whitelist', icon: 'verified' },
@@ -413,9 +421,9 @@ const filteredRows = computed(() => {
   if (searchQuery.value) {
     const q = searchQuery.value.toLowerCase()
     rows = rows.filter(r =>
-      r.plate.toLowerCase().includes(q) ||
-      r.owner.toLowerCase().includes(q) ||
-      r.region.toLowerCase().includes(q)
+      r.plate?.toLowerCase().includes(q) ||
+      r.owner?.toLowerCase().includes(q) ||
+      r.region?.toLowerCase().includes(q)
     )
   }
   if (filterRegion.value) rows = rows.filter(r => r.region === filterRegion.value)
@@ -474,24 +482,26 @@ const statusOptions = [
 
 function openForm(row) {
   editTarget.value = row
-  form.value = row
-    ? { ...row }
-    : formDefault()
+  form.value = row ? { ...row } : formDefault()
   showForm.value = true
 }
 
-function saveForm() {
+async function saveForm() {
   if (!form.value.plate.trim()) return
-
-  if (editTarget.value) {
-    const idx = allRows.value.findIndex(r => r.id === editTarget.value.id)
-    if (idx !== -1) allRows.value[idx] = { ...form.value }
-  } else {
-    allRows.value.unshift({
-      ...form.value,
-      id: Date.now(),
-      registered_at: new Date().toISOString(),
-    })
+  try {
+    if (editTarget.value) {
+      await vehicleStore.updateVehicle(editTarget.value.id, form.value)
+    } else {
+      await vehicleStore.createVehicle(form.value)
+    }
+  } catch {
+    // Backend offline — optimistic local update
+    if (editTarget.value) {
+      const idx = localRows.value.findIndex(r => r.id === editTarget.value.id)
+      if (idx !== -1) localRows.value[idx] = { ...form.value }
+    } else {
+      localRows.value.unshift({ ...form.value, id: Date.now(), registered_at: new Date().toISOString() })
+    }
   }
   showForm.value = false
 }
@@ -499,14 +509,23 @@ function saveForm() {
 // ─── Delete ───────────────────────────────────────────────────────────────────
 const deleteTarget = ref(null)
 function confirmDelete(row) { deleteTarget.value = row }
-function deleteConfirmed() {
-  allRows.value = allRows.value.filter(r => r.id !== deleteTarget.value.id)
+async function deleteConfirmed() {
+  try {
+    await vehicleStore.deleteVehicle(deleteTarget.value.id)
+  } catch {
+    localRows.value = localRows.value.filter(r => r.id !== deleteTarget.value.id)
+  }
   deleteTarget.value = null
 }
 
 // ─── Watchlist toggle ─────────────────────────────────────────────────────────
-function toggleWatchlist(row) {
-  row.status = row.status === 'watchlist' ? 'whitelist' : 'watchlist'
+async function toggleWatchlist(row) {
+  const newStatus = row.status === 'watchlist' ? 'whitelist' : 'watchlist'
+  try {
+    await vehicleStore.flagVehicle(row.id, newStatus)
+  } catch {
+    row.status = newStatus  // optimistic
+  }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -524,9 +543,23 @@ function statusPillClass(s) {
 
 const AVATAR_COLORS = ['#1e3a5f', '#c4440c', '#154c2b', '#7b2d8b', '#1a5c7a', '#8b6914']
 function avatarColor(name) {
-  const idx = name.charCodeAt(0) % AVATAR_COLORS.length
+  const idx = (name?.charCodeAt(0) ?? 0) % AVATAR_COLORS.length
   return AVATAR_COLORS[idx]
 }
+
+// ─── Lifecycle ────────────────────────────────────────────────────────────────
+onMounted(async () => {
+  try {
+    await vehicleStore.fetchVehicles()
+  } catch {
+    // Backend offline — use dummy data locally
+    localRows.value = makeDummy(40)
+  }
+  // If API returned nothing, seed dummy
+  if (!vehicleStore.vehicles.length && !localRows.value.length) {
+    localRows.value = makeDummy(40)
+  }
+})
 </script>
 
 <style scoped>

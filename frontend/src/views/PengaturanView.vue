@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <MainLayout>
     <div class="pengaturan-page">
 
@@ -474,26 +474,36 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import MainLayout from '@/components/layout/MainLayout.vue'
+import { useCameraStore } from '@/stores/camera'
+
+const cameraStore = useCameraStore()
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const REGIONS = ['DKI Jakarta', 'Jawa Barat', 'Jawa Tengah', 'Jawa Timur', 'Yogyakarta', 'Banten', 'Bali', 'Sumatera Utara']
 
-// ─── Camera list ─────────────────────────────────────────────────────────────
-const cameras = ref([
-  { id: 1, cam_id: 'CAM-JKT-001', name: 'Gerbang Tol Utama',     status: 'online',  resolution: '1080p / 60fps', rtsp_url: 'rtsp://admin:pass@192.168.1.10/stream', region: 'DKI Jakarta', confidence_threshold: 0.85, enabled: true, watchlist_alert: true,  auto_record: true,  zone: 'Zona A' },
-  { id: 2, cam_id: 'CAM-SMG-042', name: 'Simpang Lima',           status: 'online',  resolution: '720p / 30fps',  rtsp_url: 'rtsp://admin:pass@192.168.1.42/stream', region: 'Jawa Tengah',confidence_threshold: 0.80, enabled: true, watchlist_alert: true,  auto_record: false, zone: '' },
-  { id: 3, cam_id: 'CAM-BDG-011', name: 'Pintu Keluar Selatan',   status: 'offline', resolution: '',              rtsp_url: 'rtsp://admin:pass@192.168.1.11/stream', region: 'Jawa Barat', confidence_threshold: 0.80, enabled: false, watchlist_alert: false, auto_record: false, zone: '' },
-  { id: 4, cam_id: 'CAM-SBY-007', name: 'Terminal Juanda',        status: 'online',  resolution: '1080p / 30fps', rtsp_url: 'rtsp://admin:pass@192.168.1.7/stream',  region: 'Jawa Timur', confidence_threshold: 0.90, enabled: true, watchlist_alert: true,  auto_record: true,  zone: 'Zona B' },
-])
+// Dummy cameras (fallback when backend offline)
+const DUMMY_CAMERAS = [
+  { id: 1, cam_id: 'CAM-JKT-001', name: 'Gerbang Tol Utama',   status: 'online',  resolution: '1080p / 60fps', rtsp_url: 'rtsp://admin:pass@192.168.1.10/stream', region: 'DKI Jakarta', confidence_threshold: 0.85, enabled: true,  watchlist_alert: true,  auto_record: true,  zone: 'Zona A', is_active: true },
+  { id: 2, cam_id: 'CAM-SMG-042', name: 'Simpang Lima',         status: 'online',  resolution: '720p / 30fps',  rtsp_url: 'rtsp://admin:pass@192.168.1.42/stream', region: 'Jawa Tengah',confidence_threshold: 0.80, enabled: true,  watchlist_alert: true,  auto_record: false, zone: '',       is_active: true },
+  { id: 3, cam_id: 'CAM-BDG-011', name: 'Pintu Keluar Selatan', status: 'offline', resolution: '',              rtsp_url: 'rtsp://admin:pass@192.168.1.11/stream', region: 'Jawa Barat', confidence_threshold: 0.80, enabled: false, watchlist_alert: false, auto_record: false, zone: '',       is_active: false },
+  { id: 4, cam_id: 'CAM-SBY-007', name: 'Terminal Juanda',      status: 'online',  resolution: '1080p / 30fps', rtsp_url: 'rtsp://admin:pass@192.168.1.7/stream',  region: 'Jawa Timur', confidence_threshold: 0.90, enabled: true,  watchlist_alert: true,  auto_record: true,  zone: 'Zona B', is_active: true },
+]
 
-const selectedCam = ref(cameras.value[0])
+const localCameras = ref([])
 
-const onlineCameras  = computed(() => cameras.value.filter(c => c.status === 'online'))
-const offlineCameras = computed(() => cameras.value.filter(c => c.status === 'offline'))
+// Use API cameras if available, else local dummy
+const cameras = computed(() =>
+  cameraStore.cameras.length ? cameraStore.cameras : localCameras.value
+)
 
-// ─── Camera form ──────────────────────────────────────────────────────────────
+const selectedCam = ref(null)
+
+const onlineCameras  = computed(() => cameras.value.filter(c => c.status === 'online'  || c.is_active))
+const offlineCameras = computed(() => cameras.value.filter(c => c.status === 'offline' || !c.is_active))
+
+// ─── Camera form ────────────────────────────────────────────────────────────
 const editCam = ref(null)
 
 const camFormDefault = () => ({
@@ -508,26 +518,40 @@ const camForm = ref(camFormDefault())
 function openCamForm(cam) {
   editCam.value = cam
   camForm.value = cam ? { ...cam } : camFormDefault()
+  if (cam) selectedCam.value = cam
 }
 
 function resetCamForm() {
-  editCam.value = null
+  editCam.value  = null
   camForm.value  = camFormDefault()
 }
 
-function saveCamForm() {
+async function saveCamForm() {
   if (!camForm.value.name.trim() || !camForm.value.rtsp_url.trim()) return
-
-  if (editCam.value) {
-    const idx = cameras.value.findIndex(c => c.id === editCam.value.id)
-    if (idx !== -1) cameras.value[idx] = { ...cameras.value[idx], ...camForm.value }
-  } else {
-    cameras.value.push({
-      ...camForm.value,
-      id: Date.now(),
-      cam_id: `CAM-${Date.now().toString().slice(-6)}`,
-      status: 'offline',
-    })
+  try {
+    if (editCam.value) {
+      await cameraStore.updateCamera(editCam.value.id, {
+        location_name: camForm.value.name,
+        rtsp_url:      camForm.value.rtsp_url,
+        is_active:     camForm.value.enabled,
+        confidence:    camForm.value.confidence_threshold,
+      })
+    } else {
+      await cameraStore.createCamera({
+        location_name: camForm.value.name,
+        rtsp_url:      camForm.value.rtsp_url,
+        is_active:     camForm.value.enabled,
+        confidence:    camForm.value.confidence_threshold,
+      })
+    }
+  } catch {
+    // Backend offline — optimistic local update
+    if (editCam.value) {
+      const idx = localCameras.value.findIndex(c => c.id === editCam.value.id)
+      if (idx !== -1) localCameras.value[idx] = { ...localCameras.value[idx], ...camForm.value }
+    } else {
+      localCameras.value.push({ ...camForm.value, id: Date.now(), cam_id: `CAM-${Date.now().toString().slice(-6)}`, status: 'offline' })
+    }
   }
   resetCamForm()
   showToast('Kamera berhasil disimpan')
@@ -537,18 +561,22 @@ function zoneClicked() {
   camForm.value.zone = camForm.value.zone ? '' : 'Zona Kustom'
 }
 
-// ─── Delete camera ────────────────────────────────────────────────────────────
+// ─── Delete camera ─────────────────────────────────────────────────────────
 const deleteCamTarget = ref(null)
 function confirmDeleteCam(cam) { deleteCamTarget.value = cam }
-function deleteCamConfirmed() {
-  cameras.value = cameras.value.filter(c => c.id !== deleteCamTarget.value.id)
+async function deleteCamConfirmed() {
+  try {
+    await cameraStore.deleteCamera(deleteCamTarget.value.id)
+  } catch {
+    localCameras.value = localCameras.value.filter(c => c.id !== deleteCamTarget.value.id)
+  }
   if (selectedCam.value?.id === deleteCamTarget.value.id) selectedCam.value = cameras.value[0] ?? null
   deleteCamTarget.value = null
   resetCamForm()
   showToast('Kamera berhasil dihapus')
 }
 
-// ─── Global settings ─────────────────────────────────────────────────────────
+// ─── Global settings (local-only, no API endpoint yet) ────────────────────────
 const globalSettings = ref({
   model:            'yolov8n',
   min_confidence:   0.80,
@@ -576,12 +604,12 @@ function resetGlobal() {
 
 function saveGlobal() { showToast('Pengaturan global disimpan') }
 
-// ─── Storage (simulated) ──────────────────────────────────────────────────────
+// ─── Storage (simulated for now) ─────────────────────────────────────────────────
 const storageUsed    = ref('34.8 GB')
 const storageTotal   = ref('100 GB')
 const storagePercent = ref(34.8)
 
-// ─── Toast ────────────────────────────────────────────────────────────────────
+// ─── Toast ──────────────────────────────────────────────────────────────────────
 const toastMsg = ref('')
 let toastTimer = null
 function showToast(msg) {
@@ -589,6 +617,23 @@ function showToast(msg) {
   clearTimeout(toastTimer)
   toastTimer = setTimeout(() => { toastMsg.value = '' }, 3000)
 }
+
+// ─── Lifecycle ────────────────────────────────────────────────────────────────
+onMounted(async () => {
+  try {
+    await cameraStore.fetchCameras()
+    // Set first camera as selected
+    if (cameraStore.cameras.length) selectedCam.value = cameraStore.cameras[0]
+  } catch {
+    // Backend offline — use dummy
+    localCameras.value = DUMMY_CAMERAS
+    selectedCam.value = DUMMY_CAMERAS[0]
+  }
+  if (!cameras.value.length) {
+    localCameras.value = DUMMY_CAMERAS
+    selectedCam.value = DUMMY_CAMERAS[0]
+  }
+})
 </script>
 
 <style scoped>

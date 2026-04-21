@@ -8,14 +8,14 @@
       <section class="dashboard__metrics">
         <MetricCard
           label="Deteksi Hari Ini"
-          :value="stats.todayTotal"
+          :value="stats.total_detections ?? stats.todayTotal"
           icon="directions_car"
           :trend="12"
           trend-label="vs kemarin"
         />
         <MetricCard
           label="Akurasi OCR"
-          :value="stats.ocrAccuracy"
+          :value="stats.ocr_accuracy ?? stats.ocrAccuracy"
           unit="%"
           icon="center_focus_strong"
           :trend="0.2"
@@ -23,7 +23,7 @@
         />
         <MetricCard
           label="Avg Latency"
-          :value="stats.avgLatency"
+          :value="stats.avg_latency_ms ?? stats.avgLatency"
           unit="ms"
           icon="speed"
           :trend="null"
@@ -31,7 +31,7 @@
         />
         <MetricCard
           label="Alert Aktif"
-          :value="stats.activeAlerts"
+          :value="stats.watchlist_hits ?? stats.activeAlerts"
           icon="warning"
           :alert="true"
           :trend="null"
@@ -95,8 +95,8 @@
         <!-- Detection Log (1/3 width) -->
         <div class="dashboard__log-panel">
           <DetectionLog
-            :items="dummyDetections"
-            :loading="false"
+            :items="logItems"
+            :loading="detectionStore.loading"
             @refresh="handleRefresh"
             @select="handleDetectionSelect"
           />
@@ -109,12 +109,12 @@
       <section class="dashboard__analytics-row">
         <!-- 7-day trend chart (2/3) -->
         <div class="dashboard__chart">
-          <DetectionChart :data="dummyChartData" />
+          <DetectionChart :data="chartItems" />
         </div>
 
         <!-- Source + region breakdown (1/3) -->
         <div class="dashboard__breakdown">
-          <SourceBreakdown :source-data="dummySourceData" :region-data="dummyRegionData" />
+          <SourceBreakdown :source-data="sourceItems" :region-data="regionItems" />
         </div>
       </section>
 
@@ -132,20 +132,20 @@
 
         <div class="camera-grid">
           <div
-            v-for="cam in dummyCameras"
+            v-for="cam in cameraItems"
             :key="cam.id"
             class="camera-card"
-            :class="{ 'camera-card--offline': !cam.online }"
+            :class="{ 'camera-card--offline': !cam.online && !cam.is_active }"
           >
             <div class="camera-card__status-dot"
-              :class="cam.online ? 'dot--online' : 'dot--offline'"
+              :class="(cam.online || cam.is_active) ? 'dot--online' : 'dot--offline'"
             ></div>
             <div class="camera-card__info">
-              <p class="camera-card__name">{{ cam.name }}</p>
-              <p class="camera-card__location">{{ cam.location }}</p>
+              <p class="camera-card__name">{{ cam.name || cam.location_name }}</p>
+              <p class="camera-card__location">{{ cam.location || cam.cam_id || 'ID tidak diketahui' }}</p>
             </div>
             <div class="camera-card__stat">
-              <span class="camera-card__count">{{ cam.detections_today.toLocaleString('id-ID') }}</span>
+              <span class="camera-card__count">{{ (cam.detections_today ?? 0).toLocaleString('id-ID') }}</span>
               <span class="camera-card__count-label">hari ini</span>
             </div>
           </div>
@@ -157,103 +157,104 @@
 </template>
 
 <script setup>
-import { reactive, ref, onMounted, onUnmounted } from 'vue'
+import { reactive, ref, computed, onMounted, onUnmounted } from 'vue'
 import MainLayout from '@/components/layout/MainLayout.vue'
 import MetricCard from '@/components/dashboard/MetricCard.vue'
 import DetectionLog from '@/components/dashboard/DetectionLog.vue'
 import DetectionChart from '@/components/dashboard/DetectionChart.vue'
 import SourceBreakdown from '@/components/dashboard/SourceBreakdown.vue'
+import { useStatsStore }     from '@/stores/stats'
+import { useCameraStore }    from '@/stores/camera'
+import { useDetectionStore } from '@/stores/detection'
 
-// ─── Summary stats (dummy) ───────────────────────────────────────────────────
-const stats = reactive({
-  todayTotal:   14289,
-  ocrAccuracy:  98.4,
-  avgLatency:   124,
-  activeAlerts: 3,
-})
+const statsStore     = useStatsStore()
+const cameraStore    = useCameraStore()
+const detectionStore = useDetectionStore()
 
-// ─── Demo live annotation ────────────────────────────────────────────────────
-const demoAnnotation = reactive({
-  show:   true,
-  plate:  'B 1234 XYZ',
-  conf:   99,
-  type:   'SUV',
-  region: 'DKI Jakarta',
-})
+// ─── Metric cards: live from API, fallback to dummy when offline ─────────────
+const DUMMY_STATS = { total_detections: 14289, ocr_accuracy: 98.4, avg_latency_ms: 124, watchlist_hits: 3 }
+const stats = computed(() => statsStore.summary || DUMMY_STATS)
 
-// ─── Dummy detection log ─────────────────────────────────────────────────────
-const dummyDetections = [
-  { id: 1, plate_text: 'B 1234 XYZ', status: 'valid',     detected_at: new Date(Date.now() - 1*60000).toISOString(), crop_url: null },
-  { id: 2, plate_text: 'D 8888 AA',  status: 'watchlist', detected_at: new Date(Date.now() - 2*60000).toISOString(), crop_url: null },
-  { id: 3, plate_text: 'F 5678 BCD', status: 'valid',     detected_at: new Date(Date.now() - 4*60000).toISOString(), crop_url: null },
-  { id: 4, plate_text: 'AB 123 CD',  status: 'valid',     detected_at: new Date(Date.now() - 6*60000).toISOString(), crop_url: null },
-  { id: 5, plate_text: '???',        status: 'ocr_failed', detected_at: new Date(Date.now() - 8*60000).toISOString(), crop_url: null },
-  { id: 6, plate_text: 'L 9999 XY',  status: 'watchlist', detected_at: new Date(Date.now() - 10*60000).toISOString(), crop_url: null },
-  { id: 7, plate_text: 'N 0001 A',   status: 'valid',     detected_at: new Date(Date.now() - 12*60000).toISOString(), crop_url: null },
-  { id: 8, plate_text: 'T 4567 NN',  status: 'valid',     detected_at: new Date(Date.now() - 14*60000).toISOString(), crop_url: null },
+// ─── Detection log items (live from API, fallback to dummy) ──────────────────
+const DUMMY_LOG = [
+  { id: 1, plate_text: 'B 1234 XYZ', status: 'valid',     detected_at: new Date(Date.now() - 1*60000).toISOString() },
+  { id: 2, plate_text: 'D 8888 AA',  status: 'watchlist', detected_at: new Date(Date.now() - 2*60000).toISOString() },
+  { id: 3, plate_text: 'F 5678 BCD', status: 'valid',     detected_at: new Date(Date.now() - 4*60000).toISOString() },
+  { id: 4, plate_text: 'AB 123 CD',  status: 'valid',     detected_at: new Date(Date.now() - 6*60000).toISOString() },
+  { id: 5, plate_text: '???',        status: 'ocr_failed',detected_at: new Date(Date.now() - 8*60000).toISOString() },
+  { id: 6, plate_text: 'L 9999 XY',  status: 'watchlist', detected_at: new Date(Date.now() - 10*60000).toISOString() },
 ]
+const logItems = computed(() =>
+  detectionStore.detections.length ? detectionStore.detections : DUMMY_LOG
+)
 
-// ─── Dummy chart data (7 days) ───────────────────────────────────────────────
-const dummyChartData = (() => {
+// ─── Chart data (live from API, fallback to generated dummy) ─────────────────
+const DUMMY_CHART = (() => {
   const days = []
   for (let i = 6; i >= 0; i--) {
     const d = new Date()
     d.setDate(d.getDate() - i)
-    const total     = Math.floor(Math.random() * 3000) + 11000
+    const total = Math.floor(Math.random() * 3000) + 11000
     const watchlist = Math.floor(Math.random() * 30) + 5
-    days.push({
-      date:      d.toISOString().slice(0, 10),
-      total,
-      valid:     total - watchlist - Math.floor(Math.random() * 50),
-      watchlist,
-    })
+    days.push({ date: d.toISOString().slice(0, 10), total, valid: total - watchlist - 30, watchlist })
   }
   return days
 })()
+const chartItems = computed(() =>
+  statsStore.chartData?.length ? statsStore.chartData : DUMMY_CHART
+)
 
-// ─── Dummy source data ───────────────────────────────────────────────────────
-const dummySourceData = [
-  { source: 'stream',      count: 9821 },
-  { source: 'upload',      count: 3102 },
-  { source: 'video_batch', count: 1366 },
+// ─── Source / Region breakdown ───────────────────────────────────────────────
+const DUMMY_SOURCE = [
+  { source: 'stream', count: 9821 }, { source: 'upload', count: 3102 }, { source: 'video_batch', count: 1366 },
 ]
-
-// ─── Dummy region data ───────────────────────────────────────────────────────
-const dummyRegionData = [
-  { region_code: 'B',  region: 'DKI Jakarta',    count: 4210 },
-  { region_code: 'D',  region: 'Bandung',         count: 2841 },
-  { region_code: 'L',  region: 'Surabaya',        count: 2103 },
-  { region_code: 'AB', region: 'Yogyakarta',      count: 1562 },
-  { region_code: 'F',  region: 'Bogor',           count: 987  },
+const DUMMY_REGION = [
+  { region_code: 'B',  region: 'DKI Jakarta', count: 4210 },
+  { region_code: 'D',  region: 'Bandung',     count: 2841 },
+  { region_code: 'L',  region: 'Surabaya',    count: 2103 },
 ]
+const sourceItems = computed(() => statsStore.cameraData?.length ? statsStore.cameraData : DUMMY_SOURCE)
+const regionItems = computed(() => statsStore.regionData?.length ? statsStore.regionData : DUMMY_REGION)
 
-// ─── Dummy camera status ─────────────────────────────────────────────────────
-const dummyCameras = [
+// ─── Camera status row ───────────────────────────────────────────────────────
+const DUMMY_CAMERAS = [
   { id: 1, name: 'Pintu Masuk Utama', location: 'Gate A',  online: true,  detections_today: 5823 },
   { id: 2, name: 'Pintu Keluar',      location: 'Gate B',  online: true,  detections_today: 4511 },
   { id: 3, name: 'Parkir Basement',   location: 'B1',      online: false, detections_today: 0    },
   { id: 4, name: 'Area Tamu',         location: 'Lobby',   online: true,  detections_today: 3955 },
 ]
+const cameraItems = computed(() =>
+  cameraStore.cameras.length ? cameraStore.cameras : DUMMY_CAMERAS
+)
 
-// ─── Handlers ────────────────────────────────────────────────────────────────
-function handleRefresh() {
-  // TODO: call detection store fetchDetections()
-}
-
-function handleDetectionSelect(item) {
-  // TODO: open detail drawer
-}
-
-// ─── Animate demo annotation plate periodically ───────────────────────────────
+// ─── Demo live annotation (rotates regardless of WS) ────────────────────────
+const demoAnnotation = reactive({
+  show: true, plate: 'B 1234 XYZ', conf: 99, type: 'SUV', region: 'DKI Jakarta',
+})
 const plates = ['B 1234 XYZ', 'D 8888 AA', 'F 5678 BCD', 'L 9999 XY', 'AB 123 CD']
 let plateTimer = null
+
+// ─── Handlers ────────────────────────────────────────────────────────────────
+function handleRefresh() { detectionStore.fetchDetections() }
+function handleDetectionSelect(item) { /* TODO: open global detail drawer */ }
+
+// ─── Lifecycle ───────────────────────────────────────────────────────────────
 onMounted(() => {
+  // Start stats auto-refresh (30s); silently fails when backend offline
+  statsStore.startAutoRefresh(30_000)
+  // Fetch cameras for status row
+  cameraStore.fetchCameras()
+  // Fetch recent detections for log
+  detectionStore.fetchDetections()
+  // Animate annotation plate
   plateTimer = setInterval(() => {
     demoAnnotation.plate = plates[Math.floor(Math.random() * plates.length)]
     demoAnnotation.conf  = Math.floor(Math.random() * 5) + 95
   }, 2500)
 })
+
 onUnmounted(() => {
+  statsStore.stopAutoRefresh()
   clearInterval(plateTimer)
 })
 </script>
