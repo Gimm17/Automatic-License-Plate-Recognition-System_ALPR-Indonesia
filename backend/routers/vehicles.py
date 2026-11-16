@@ -28,6 +28,7 @@ from utils.response import success_response, error_response, paginated_response
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/vehicles", tags=["Vehicles"])
+VALID_VEHICLE_STATUSES = {"normal", "watchlist", "stolen", "expired"}
 
 
 # ─── GET /api/vehicles ────────────────────────────────────────────────────────
@@ -85,6 +86,11 @@ async def create_vehicle(payload: VehicleCreate, db: Session = Depends(get_db)):
         notes:        Freeform notes
     """
     plate = clean_ocr_text(payload.plate_text)
+    if payload.status not in VALID_VEHICLE_STATUSES:
+        return error_response(
+            f"Invalid status '{payload.status}'. Must be one of: {sorted(VALID_VEHICLE_STATUSES)}",
+            code=422,
+        )
 
     existing = db.query(Vehicle).filter(Vehicle.plate_text == plate).first()
     if existing:
@@ -162,6 +168,11 @@ async def update_vehicle(
     vehicle = _get_or_404(vehicle_id, db)
 
     update_data = payload.model_dump(exclude_unset=True)
+    if "status" in update_data and update_data["status"] not in VALID_VEHICLE_STATUSES:
+        return error_response(
+            f"Invalid status '{update_data['status']}'. Must be one of: {sorted(VALID_VEHICLE_STATUSES)}",
+            code=422,
+        )
     for field, value in update_data.items():
         setattr(vehicle, field, value)
 
@@ -204,10 +215,9 @@ async def flag_vehicle(
         status: Target status — watchlist | stolen | expired | normal
         notes:  Reason for flagging
     """
-    valid_statuses = {"normal", "watchlist", "stolen", "expired"}
-    if status not in valid_statuses:
+    if status not in VALID_VEHICLE_STATUSES:
         return error_response(
-            f"Invalid status '{status}'. Must be one of: {valid_statuses}", code=422
+            f"Invalid status '{status}'. Must be one of: {sorted(VALID_VEHICLE_STATUSES)}", code=422
         )
 
     vehicle = _get_or_404(vehicle_id, db)

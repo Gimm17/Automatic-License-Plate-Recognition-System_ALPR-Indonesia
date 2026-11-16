@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <MainLayout>
     <div class="pengaturan-page">
 
@@ -73,8 +73,17 @@
               <!-- Preview thumbnail -->
               <div class="cam-card__preview">
                 <template v-if="cam.status === 'online'">
-                  <div class="cam-preview-placeholder">
-                    <span class="material-symbols-outlined" style="font-size:32px;color:var(--on-surface-variant);opacity:.3">videocam</span>
+                  <!-- HLS live video preview -->
+                  <video
+                    :ref="el => { if (el) previewVideos[cam.id] = el }"
+                    class="cam-preview-video"
+                    muted
+                    playsinline
+                    autoplay
+                  />
+                  <!-- Loading spinner until video plays -->
+                  <div v-if="!previewLoaded[cam.id]" class="cam-preview-placeholder">
+                    <span class="material-symbols-outlined" style="font-size:22px;color:var(--on-surface-variant);opacity:.4">videocam</span>
                   </div>
                   <!-- LIVE badge -->
                   <div class="live-badge">
@@ -136,13 +145,16 @@
             </div>
 
             <div class="cam-form__field">
-              <label class="cam-form__label">IP Address / RTSP Stream *</label>
+              <label class="cam-form__label">URL Stream (RTSP / HTTPS / HLS) *</label>
               <input
                 v-model="camForm.rtsp_url"
                 type="text"
                 class="cam-form__input cam-form__input--mono"
-                placeholder="rtsp://admin:pass@192.168.1.100/stream"
+                placeholder="rtsp://... atau https://.../index.m3u8"
               />
+              <div style="font-size:11px;color:var(--on-surface-variant);margin-top:4px;">
+                Mendukung: RTSP · HTTPS · HLS (.m3u8) · MJPEG
+              </div>
             </div>
 
             <div class="cam-form__row">
@@ -264,8 +276,8 @@
       </div><!-- /bento-grid -->
 
       <!-- ══ GLOBAL SETTINGS SECTION ═══════════════════════════════════════════ -->
-      <div class="global-settings">
-        <h3 class="global-settings__title">Pengaturan Global Sistem</h3>
+      <div class="global-settings global-settings--readonly">
+        <h3 class="global-settings__title">Pengaturan Global Sistem <span class="settings-status">Belum aktif</span></h3>
 
         <div class="settings-grid">
 
@@ -426,11 +438,11 @@
 
         <!-- Save global settings -->
         <div class="global-actions">
-          <button class="btn-global-reset" @click="resetGlobal">
+          <button class="btn-global-reset" disabled @click="resetGlobal">
             <span class="material-symbols-outlined" style="font-size:15px">restart_alt</span>
             Reset ke Default
           </button>
-          <button class="btn-global-save" @click="saveGlobal">
+          <button class="btn-global-save" disabled @click="saveGlobal">
             <span class="material-symbols-outlined" style="font-size:15px">save</span>
             Simpan Pengaturan
           </button>
@@ -474,7 +486,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import Hls from 'hls.js'
 import MainLayout from '@/components/layout/MainLayout.vue'
 import { useCameraStore } from '@/stores/camera'
 
@@ -484,13 +497,13 @@ const cameraStore = useCameraStore()
 const REGIONS = ['DKI Jakarta', 'Jawa Barat', 'Jawa Tengah', 'Jawa Timur', 'Yogyakarta', 'Banten', 'Bali', 'Sumatera Utara']
 
 
-// --- Camera state - langsung dari API, tanpa dummy ---
+// Camera state from the backend API.
 const cameras = computed(() => cameraStore.cameras)
 
 const selectedCam = ref(null)
 
-const onlineCameras  = computed(() => cameras.value.filter(c => c.status === 'online'  || c.is_active))
-const offlineCameras = computed(() => cameras.value.filter(c => c.status === 'offline' || !c.is_active))
+const onlineCameras  = computed(() => cameras.value.filter(c => c.status === 'online'))
+const offlineCameras = computed(() => cameras.value.filter(c => c.status === 'offline'))
 
 
 // ─── Camera form ────────────────────────────────────────────────────────────
@@ -518,28 +531,36 @@ function resetCamForm() {
 
 async function saveCamForm() {
   if (!camForm.value.name.trim() || !camForm.value.rtsp_url.trim()) return
+  const payload = {
+    name:       camForm.value.name.trim(),
+    location:   camForm.value.region || '',
+    rtsp_url:   camForm.value.rtsp_url.trim(),
+    is_active:  camForm.value.enabled !== false,
+    stream_fps: 5,
+  }
   try {
     if (editCam.value) {
-      await cameraStore.updateCamera(editCam.value.id, {
-        location_name: camForm.value.name,
-        rtsp_url:      camForm.value.rtsp_url,
-        is_active:     camForm.value.enabled,
-        confidence:    camForm.value.confidence_threshold,
-      })
+      await cameraStore.updateCamera(editCam.value.id, payload)
     } else {
-      await cameraStore.createCamera({
-        location_name: camForm.value.name,
-        rtsp_url:      camForm.value.rtsp_url,
-        is_active:     camForm.value.enabled,
-        confidence:    camForm.value.confidence_threshold,
-      })
+      await cameraStore.createCamera(payload)
     }
   } catch (err) {
-    showToast('Gagal menyimpan: ' + (err.message || 'Cek koneksi backend'))
+    // Format error message nicely (avoid [object Object])
+    let msg = 'Cek koneksi backend'
+    if (err?.detail) {
+      msg = Array.isArray(err.detail)
+        ? err.detail.map(d => d.msg || d.loc?.join('.') || JSON.stringify(d)).join(', ')
+        : String(err.detail)
+    } else if (err?.message) {
+      msg = err.message
+    }
+    showToast('Gagal menyimpan: ' + msg)
     return
   }
   resetCamForm()
-  showToast('Kamera berhasil disimpan')
+  await cameraStore.fetchCameras()           // refresh list from API
+  if (cameraStore.cameras.length) selectedCam.value = cameraStore.cameras[0]
+  showToast('Kamera berhasil disimpan ✓')
 }
 
 function zoneClicked() {
@@ -580,18 +601,12 @@ const globalSettings = ref({
 })
 
 function resetGlobal() {
-  globalSettings.value = {
-    model: 'yolov8n', min_confidence: 0.80, frame_skip: 2,
-    ocr_engine: 'paddleocr', validate_format: true, max_chars: 9,
-    email_alert: false, email: '', webhook_enabled: false, webhook_url: '',
-    retention_days: 30, auto_purge: true,
-  }
-  showToast('Pengaturan direset ke default')
+  showToast('Pengaturan global belum terhubung ke backend')
 }
 
-function saveGlobal() { showToast('Pengaturan global disimpan') }
+function saveGlobal() { showToast('Pengaturan global belum terhubung ke backend') }
 
-// ─── Storage (simulated for now) ─────────────────────────────────────────────────
+// Storage display placeholder until a backend settings endpoint exists.
 const storageUsed    = ref('34.8 GB')
 const storageTotal   = ref('100 GB')
 const storagePercent = ref(34.8)
@@ -605,11 +620,55 @@ function showToast(msg) {
   toastTimer = setTimeout(() => { toastMsg.value = '' }, 3000)
 }
 
-// ─── Lifecycle ────────────────────────────────────────────────────────────────
+// ─── HLS Preview for camera cards ───────────────────────────────────────────────────────────────────────
+const previewVideos = ref({})   // map cam.id => HTMLVideoElement
+const previewLoaded = ref({})   // map cam.id => boolean
+const previewHls    = {}        // map cam.id => Hls instance
+
+function destroyAllPreviews() {
+  Object.values(previewHls).forEach(h => h.destroy())
+  Object.keys(previewHls).forEach(k => delete previewHls[k])
+}
+
+async function initPreviewsHls() {
+  await nextTick()
+  const onlineCams = cameraStore.cameras.filter(c => c.is_active && c.rtsp_url)
+  for (const cam of onlineCams) {
+    const videoEl = previewVideos.value[cam.id]
+    if (!videoEl || previewHls[cam.id]) continue
+
+    const url = cam.rtsp_url
+    // Only init for HLS/HTTP streams (not RTSP)
+    if (url.startsWith('rtsp://')) continue
+
+    if (Hls.isSupported()) {
+      const hls = new Hls({ manifestLoadingMaxRetry: 6, manifestLoadingRetryDelay: 2000 })
+      hls.loadSource(url)
+      hls.attachMedia(videoEl)
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        videoEl.play().catch(() => {})
+        previewLoaded.value = { ...previewLoaded.value, [cam.id]: true }
+      })
+      previewHls[cam.id] = hls
+    } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
+      videoEl.src = url
+      videoEl.play().catch(() => {})
+      previewLoaded.value = { ...previewLoaded.value, [cam.id]: true }
+    }
+  }
+}
+
+// ─── Lifecycle ──────────────────────────────────────────────────────────────────────────────
 onMounted(async () => {
   await cameraStore.fetchCameras()
   // Select first camera if available
   if (cameraStore.cameras.length) selectedCam.value = cameraStore.cameras[0]
+  // Init HLS previews
+  await initPreviewsHls()
+})
+
+onUnmounted(() => {
+  destroyAllPreviews()
 })
 </script>
 
@@ -705,6 +764,24 @@ onMounted(async () => {
 .cam-preview-placeholder,
 .cam-preview-offline {
   width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 4px;
+}
+
+/* HLS video fills preview area */
+.cam-preview-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #0b151c;
+}
+
+/* Placeholder overlays on top of video while loading */
+.cam-preview-placeholder {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: var(--surface-container-low);
 }
 
 .offline-text { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--on-surface-variant); opacity: .5; }
@@ -863,8 +940,22 @@ onMounted(async () => {
 /* ─── Global settings ─────────────────────────────────────────────────────────── */
 .global-settings { display: flex; flex-direction: column; gap: 16px; }
 .global-settings__title { font-size: 16px; font-weight: 700; color: var(--primary); }
+.settings-status {
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: var(--surface-container-high);
+  color: var(--on-surface-variant);
+  font-size: 10px;
+  font-weight: 700;
+  vertical-align: middle;
+}
 
 .settings-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+.global-settings--readonly .settings-grid {
+  opacity: 0.62;
+  pointer-events: none;
+}
 
 @media (max-width: 900px) { .settings-grid { grid-template-columns: 1fr; } }
 
@@ -926,6 +1017,11 @@ onMounted(async () => {
   font-size: 12px; font-weight: 700; cursor: pointer; transition: opacity .15s;
 }
 .btn-global-save:hover { opacity: .9; }
+.btn-global-reset:disabled,
+.btn-global-save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
 /* ─── Delete modal ───────────────────────────────────────────────────────────── */
 .modal-overlay {

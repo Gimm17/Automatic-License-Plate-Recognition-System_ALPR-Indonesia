@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     APP_ENV: str = "development"
     APP_DEBUG: bool = True
     API_SECRET_KEY: str = "change-me-in-production"
+    API_REQUIRE_KEY: bool = False
+    API_KEY: str = ""
+    ENABLE_DETECTION_WORKER: bool = False
 
     # ─── Database ───────────────────────────────────────────────────────────────
     DB_HOST: str = "localhost"
@@ -24,6 +27,7 @@ class Settings(BaseSettings):
     DB_NAME: str = "alpr_db"
     DB_USER: str = "root"
     DB_PASSWORD: str = ""
+    DB_FALLBACK_SQLITE: bool = True
 
     # ─── CORS ───────────────────────────────────────────────────────────────────
     CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
@@ -64,6 +68,10 @@ class Settings(BaseSettings):
     @property
     def exports_dir(self) -> Path:
         return self.storage_dir / "exports"
+
+    @property
+    def static_dir(self) -> Path:
+        return BASE_DIR / "static"
 
     # ─── Stream ─────────────────────────────────────────────────────────────────
     DEFAULT_STREAM_FPS: int = 5

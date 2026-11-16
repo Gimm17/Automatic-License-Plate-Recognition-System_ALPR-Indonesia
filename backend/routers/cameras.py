@@ -15,9 +15,10 @@ import logging
 from typing import Optional
 
 import cv2
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
+from config import settings
 from database import get_db
 from models.camera import Camera
 from schemas.camera import CameraCreate, CameraUpdate, CameraResponse
@@ -57,7 +58,11 @@ async def list_cameras(
 
 # ─── POST /api/cameras ────────────────────────────────────────────────────────
 @router.post("")
-async def create_camera(payload: CameraCreate, db: Session = Depends(get_db)):
+async def create_camera(
+    payload: CameraCreate,
+    request: Request,
+    db: Session = Depends(get_db),
+):
     """
     Register a new camera.
 
@@ -79,6 +84,7 @@ async def create_camera(payload: CameraCreate, db: Session = Depends(get_db)):
     db.add(camera)
     db.commit()
     db.refresh(camera)
+    _sync_worker_for_camera(request, camera)
 
     logger.info(f"Camera created: id={camera.id} name={camera.name}")
     return success_response(
@@ -100,6 +106,7 @@ async def get_camera(camera_id: int, db: Session = Depends(get_db)):
 async def update_camera(
     camera_id: int,
     payload: CameraUpdate,
+    request: Request,
     db: Session = Depends(get_db),
 ):
     """
@@ -115,6 +122,7 @@ async def update_camera(
 
     db.commit()
     db.refresh(camera)
+    _sync_worker_for_camera(request, camera)
 
     logger.info(f"Camera updated: id={camera_id} fields={list(update_data.keys())}")
     return success_response(
@@ -125,7 +133,11 @@ async def update_camera(
 
 # ─── DELETE /api/cameras/{id} ────────────────────────────────────────────────
 @router.delete("/{camera_id}")
-async def deactivate_camera(camera_id: int, db: Session = Depends(get_db)):
+async def deactivate_camera(
+    camera_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
     """
     Soft-delete: sets is_active=False instead of removing the record.
     Detection history is preserved.
@@ -133,6 +145,7 @@ async def deactivate_camera(camera_id: int, db: Session = Depends(get_db)):
     camera = _get_or_404(camera_id, db)
     camera.is_active = False
     db.commit()
+    _sync_worker_for_camera(request, camera)
 
     logger.info(f"Camera deactivated: id={camera_id}")
     return success_response(None, f"Camera '{camera.name}' deactivated")
@@ -196,3 +209,11 @@ def _get_or_404(camera_id: int, db: Session) -> Camera:
     if not camera:
         raise HTTPException(status_code=404, detail="Camera not found")
     return camera
+
+
+def _sync_worker_for_camera(request: Request, camera: Camera) -> None:
+    if not settings.ENABLE_DETECTION_WORKER:
+        return
+    worker = getattr(request.app.state, "detection_worker", None)
+    if worker:
+        worker.sync_camera(camera)

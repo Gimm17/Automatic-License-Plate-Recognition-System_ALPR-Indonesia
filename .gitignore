@@ -58,3 +58,16 @@ Thumbs.db
 .paddleocr/
 
 backend/storage/*.db
+
+.env.*
+!.env.example
+frontend/.env
+*.exe
+*.mp4
+*.avi
+*.pt
+*.onnx
+stream_simulator/tools/
+stream_simulator/uploads/
+stream_simulator/streams/
+backend/ml_models/*.jpg

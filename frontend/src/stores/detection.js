@@ -19,6 +19,7 @@ export const useDetectionStore = defineStore('detection', () => {
     search:    '',
     status:    '',
     camera_id: null,
+    source_type: '',
     date_from: '',
     date_to:   '',
   })
@@ -64,7 +65,7 @@ export const useDetectionStore = defineStore('detection', () => {
       if (cameraId) form.append('camera_id', cameraId)
 
       const result = await api.post('/api/detect', form, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 300_000,
       })
       uploadResult.value = result
       return result
@@ -82,7 +83,7 @@ export const useDetectionStore = defineStore('detection', () => {
   }
 
   function resetFilters() {
-    filters.value = { search: '', status: '', camera_id: null, date_from: '', date_to: '' }
+    filters.value = { search: '', status: '', camera_id: null, source_type: '', date_from: '', date_to: '' }
     page.value = 1
   }
 

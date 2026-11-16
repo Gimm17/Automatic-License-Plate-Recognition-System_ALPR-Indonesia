@@ -13,6 +13,7 @@ export const useStatsStore = defineStore('stats', () => {
   const chartData     = ref([])
   const regionData    = ref([])
   const cameraData    = ref([])
+  const sourceData    = ref([])
   const alertsData    = ref(null)
   const loading       = ref(false)
   const error         = ref(null)
@@ -51,6 +52,14 @@ export const useStatsStore = defineStore('stats', () => {
     }
   }
 
+  async function fetchSourceStats(days = 7) {
+    try {
+      sourceData.value = await api.get('/api/stats/by-source', { params: { days } })
+    } catch (e) {
+      console.warn('Source stats fetch failed', e.message)
+    }
+  }
+
   async function fetchAlerts(hours = 24) {
     try {
       alertsData.value = await api.get('/api/stats/alerts', { params: { hours } })
@@ -67,6 +76,7 @@ export const useStatsStore = defineStore('stats', () => {
       fetchChart(7),
       fetchRegion(7),
       fetchCameraStats(1),
+      fetchSourceStats(7),
       fetchAlerts(24),
     ])
     loading.value = false
@@ -86,9 +96,9 @@ export const useStatsStore = defineStore('stats', () => {
   }
 
   return {
-    summary, chartData, regionData, cameraData, alertsData,
+    summary, chartData, regionData, cameraData, sourceData, alertsData,
     loading, error,
     fetchSummary, fetchChart, fetchRegion, fetchCameraStats,
-    fetchAlerts, fetchAll, startAutoRefresh, stopAutoRefresh,
+    fetchSourceStats, fetchAlerts, fetchAll, startAutoRefresh, stopAutoRefresh,
   }
 })

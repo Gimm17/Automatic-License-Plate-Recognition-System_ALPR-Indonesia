@@ -136,30 +136,37 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import MainLayout from '@/components/layout/MainLayout.vue'
 import CameraFeedCard from '@/components/monitor/CameraFeedCard.vue'
 import RealtimeLog from '@/components/monitor/RealtimeLog.vue'
-import { useStreamStore } from '@/stores/stream'
-import { useCameraStore } from '@/stores/camera'
+import { useStreamStore }    from '@/stores/stream'
+import { useCameraStore }    from '@/stores/camera'
+import { useDetectionStore } from '@/stores/detection'
+import { useStatsStore }     from '@/stores/stats'
 
-const streamStore = useStreamStore()
-const cameraStore = useCameraStore()
+const streamStore    = useStreamStore()
+const cameraStore    = useCameraStore()
+const detectionStore = useDetectionStore()
+const statsStore     = useStatsStore()
 
 // ─── Grid layout ─────────────────────────────────────────────────────────────
 const gridLayout = ref('2x2')
 const gridOptions = [
   { value: '1x1', label: '1×1', icon: 'crop_square' },
   { value: '2x2', label: '2×2', icon: 'grid_view' },
-  { value: '1+3', label: '1+3', icon: 'view_quilt' },
+  { value: 'one-plus-three', label: '1+3', icon: 'view_quilt' },
 ]
 
-// ─── Cameras (dummy data until backend connected) ─────────────────────────────
-const cameras = ref([
-  { id: 1, label: 'CAM-01', location: 'Jakarta Utara',   online: true },
-  { id: 2, label: 'CAM-02', location: 'Jakarta Selatan', online: true },
-  { id: 3, label: 'CAM-03', location: 'Tol Dalam Kota',  online: true },
-  { id: 4, label: 'CAM-04', location: 'Bekasi Barat',    online: false },
-])
+// ─── Cameras from real API ────────────────────────────────────────────────────
+const cameras = computed(() =>
+  cameraStore.cameras.map(c => ({
+    ...c,
+    label:    c.name,
+    location: c.location || '',
+    online:   c.is_active,
+    // rtsp_url already included via ...c spread
+  }))
+)
 
 // ─── Selection ────────────────────────────────────────────────────────────────
-const selectedCameraId = ref(1)
+const selectedCameraId = ref(null)
 const selectedCamera = computed(() =>
   cameras.value.find(c => c.id === selectedCameraId.value) ?? null
 )
@@ -188,42 +195,27 @@ function disconnectAll() {
   streamStore.disconnectAll()
 }
 
-// ─── Stats summary (dummy) ────────────────────────────────────────────────────
-const stats = ref({ todayTotal: 12458, ocrAccuracy: 98.2 })
+// ─── Stats summary: live from API ─────────────────────────────────────────────
+const EMPTY = { total_detections: 0, ocr_accuracy_pct: 0 }
+const summary = computed(() => statsStore.summary || EMPTY)
+const stats = computed(() => ({
+  todayTotal:  summary.value.total_detections ?? 0,
+  ocrAccuracy: summary.value.ocr_accuracy_pct ?? 0,
+}))
 
-// ─── Realtime log — simulated new entries every ~2s ──────────────────────────
-const realtimeEntries = ref([
-  { id: 1, plate_text: 'B 1234 XYZ', status: 'valid',     camera_id: 1, camera_label: 'CAM-01', confidence: 0.99, detected_at: new Date(Date.now() - 5000).toISOString(),   crop_url: null },
-  { id: 2, plate_text: 'D 4455 AA',  status: 'watchlist', camera_id: 2, camera_label: 'CAM-02', confidence: 0.97, detected_at: new Date(Date.now() - 40000).toISOString(),  crop_url: null },
-  { id: 3, plate_text: 'F 8899 GHI', status: 'valid',     camera_id: 3, camera_label: 'CAM-03', confidence: 0.95, detected_at: new Date(Date.now() - 120000).toISOString(), crop_url: null },
-  { id: 4, plate_text: null,          status: 'ocr_failed',camera_id: 1, camera_label: 'CAM-01', confidence: null, detected_at: new Date(Date.now() - 300000).toISOString(), crop_url: null },
-])
-
-const dummyPlates = ['B 1234 XYZ', 'L 5678 AB', 'AB 999 CD', 'F 0011 GG', 'N 4321 ZZ']
-let logTimer = null
-let nextId = 10
-
-function addDummyEntry() {
-  const isAlert = Math.random() < 0.12
-  const isFail  = Math.random() < 0.06
-  const camIdx  = Math.floor(Math.random() * 3)
-  const cam     = cameras.value[camIdx]
-  const entry = {
-    id:           nextId++,
-    plate_text:   isFail ? null : dummyPlates[Math.floor(Math.random() * dummyPlates.length)],
-    status:       isFail ? 'ocr_failed' : isAlert ? 'watchlist' : 'valid',
-    camera_id:    cam.id,
-    camera_label: cam.label,
-    confidence:   isFail ? null : 0.88 + Math.random() * 0.12,
-    detected_at:  new Date().toISOString(),
-    crop_url:     null,
-  }
-  realtimeEntries.value.unshift(entry)
-  // Keep max 60 entries
-  if (realtimeEntries.value.length > 60) {
-    realtimeEntries.value.pop()
-  }
-}
+// ─── Realtime log: last 60 detections from API ───────────────────────────────
+const realtimeEntries = computed(() =>
+  (detectionStore.detections || []).slice(0, 60).map(d => ({
+    id:           d.id,
+    plate_text:   d.plate_text || null,
+    status:       d.status,
+    camera_id:    d.camera_id,
+    camera_label: d.camera_name || `Cam-${d.camera_id ?? '?'}`,
+    confidence:   d.confidence ?? null,
+    detected_at:  d.detected_at,
+    crop_url:     d.crop_url ?? null,
+  }))
+)
 
 // ─── Fullscreen toggle ────────────────────────────────────────────────────────
 function toggleFullscreen() {
@@ -234,13 +226,19 @@ function toggleFullscreen() {
   }
 }
 
-// ─── Lifecycle ────────────────────────────────────────────────────────────────
-onMounted(() => {
-  logTimer = setInterval(addDummyEntry, 2200)
+// ─── Lifecycle: auto-select first camera when data arrives ────────────────────
+onMounted(async () => {
+  await Promise.all([
+    cameraStore.fetchCameras(),
+    detectionStore.fetchDetections?.(),
+    statsStore.fetchSummary?.(),
+  ])
+  if (!selectedCameraId.value && cameras.value.length) {
+    selectedCameraId.value = cameras.value[0].id
+  }
 })
 
 onUnmounted(() => {
-  clearInterval(logTimer)
   streamStore.disconnectAll()
 })
 </script>
@@ -374,11 +372,11 @@ onUnmounted(() => {
 .camera-grid--1x1 > :not(:first-child) { display: none; }
 
 /* 1+3 — big left + 3 small right column */
-.camera-grid--1+3 {
+.camera-grid--one-plus-three {
   grid-template-columns: 2fr 1fr;
   grid-template-rows: 1fr 1fr;
 }
-.camera-grid--1\+3 > :first-child {
+.camera-grid--one-plus-three > :first-child {
   grid-row: 1 / 3;
 }
 

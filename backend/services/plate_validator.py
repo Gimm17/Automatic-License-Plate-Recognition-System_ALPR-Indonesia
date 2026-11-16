@@ -56,7 +56,6 @@ REGION_MAP: dict[str, str] = {
     "DB": "Sulawesi Utara",
     "DC": "Sulawesi Barat",
     "DD": "Sulawesi Selatan",
-    "DG": "Sulawesi Selatan",
     "DL": "Sulawesi Utara",
     "DM": "Gorontalo",
     "DN": "Sulawesi Tengah",

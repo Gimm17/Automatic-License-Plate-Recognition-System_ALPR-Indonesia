@@ -1,6 +1,12 @@
 """
 backend/passenger_wsgi.py
-cPanel Passenger WSGI entry point for shared hosting deployment.
+cPanel Passenger WSGI compatibility entry point.
+
+This file is only an HTTP fallback. FastAPI WebSocket routes, ASGI lifespan
+startup, and the background DetectionWorker require an ASGI server such as
+uvicorn. Use this only if the cPanel environment explicitly supports wrapping
+ASGI apps, otherwise deploy the backend to an ASGI host and serve the SPA/static
+files from cPanel.
 """
 
 import sys

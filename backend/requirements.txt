@@ -14,6 +14,7 @@ cryptography==42.0.5
 ultralytics==8.2.0
 paddlepaddle==2.6.2
 paddleocr==2.7.3
+huggingface_hub==0.23.0
 
 # Image Processing
 opencv-python-headless==4.9.0.80
@@ -31,3 +32,6 @@ pandas==2.2.2
 # Security (optional — for future auth)
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
+
+# Testing
+pytest==8.2.0

@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <MainLayout>
     <div class="kendaraan-page">
 
@@ -6,7 +6,7 @@
       <div class="k-heading">
         <div>
           <h2 class="k-heading__title">Database Kendaraan</h2>
-          <p class="k-heading__sub">Manajemen whitelist, watchlist, dan daftar plat nomor terdaftar.</p>
+          <p class="k-heading__sub">Manajemen kendaraan normal, watchlist, dicuri, dan masa berlaku.</p>
         </div>
 
         <div class="k-heading__actions">
@@ -334,44 +334,34 @@ const REGIONS_LIST = [
   'Yogyakarta', 'Banten', 'Bali', 'Sumatera Utara', 'Sulawesi Selatan',
 ]
 
-// ─── Dummy data (static fallback when backend offline) ────────────────────────
-const OWNERS = ['Budi Santoso', 'Dewi Rahayu', 'Ahmad Fauzi', 'Siti Nurhaliza', 'Eko Prasetyo', 'Rina Wati', 'Hendra Gunawan', 'Maya Sari']
-const PLATES = ['B 1234 ABC', 'D 5678 XYZ', 'L 9012 QRS', 'AB 3344 TT', 'F 8877 GG', 'N 4321 PP', 'B 5566 KK', 'T 7890 MN']
 
-function makeDummy(n = 40) {
-  const statuses = ['whitelist', 'whitelist', 'whitelist', 'watchlist', 'blacklist']
-  const types    = ['Sedan', 'SUV', 'MPV', 'Pickup', 'Motor', 'Truk']
-  return Array.from({ length: n }, (_, i) => {
-    const d = new Date()
-    d.setDate(d.getDate() - Math.floor(Math.random() * 180))
-    return {
-      id: i + 1,
-      plate: PLATES[i % PLATES.length] + `-${i}`,
-      owner: OWNERS[i % OWNERS.length],
-      region: REGIONS_LIST[i % REGIONS_LIST.length],
-      vehicle_type: types[i % types.length],
-      status: statuses[i % statuses.length],
-      registered_at: d.toISOString(),
-      notes: '',
-    }
-  })
-}
-
-// Local state for offline-mode or optimistic edits
+// Local state for optimistic edits only.
 const localRows = ref([])
 const loading   = computed(() => vehicleStore.loading)
 
-// Merge: prefer API data, fallback to dummy
-const allRows = computed(() =>
-  vehicleStore.vehicles.length ? vehicleStore.vehicles : localRows.value
-)
+// Map vehicle store data to UI shape
+const allRows = computed(() => {
+  const src = vehicleStore.vehicles.length ? vehicleStore.vehicles : localRows.value
+  return src.map(v => ({
+    id:           v.id,
+    plate:        v.plate_text || v.plate || '',
+    owner:        v.owner_name || v.owner || '—',
+    region:       v.region ?? '—',
+    vehicle_type: v.vehicle_type || '—',
+    status:       v.status || 'normal',
+    registered_at:v.created_at || v.registered_at || new Date().toISOString(),
+    notes:        v.notes || '',
+  }))
+})
+
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 const tabs = [
   { key: '',           label: 'Semua',     icon: 'list' },
-  { key: 'whitelist',  label: 'Whitelist', icon: 'verified' },
+  { key: 'normal',     label: 'Normal',    icon: 'verified' },
   { key: 'watchlist',  label: 'Watchlist', icon: 'flag' },
-  { key: 'blacklist',  label: 'Blacklist', icon: 'block' },
+  { key: 'stolen',     label: 'Dicuri',    icon: 'block' },
+  { key: 'expired',    label: 'Expired',   icon: 'event_busy' },
 ]
 
 const activeTab = ref('')
@@ -384,15 +374,15 @@ function tabCount(key) {
 }
 
 function tabCountClass(key) {
-  return { whitelist: 'count--ok', watchlist: 'count--alert', blacklist: 'count--error', '': 'count--neutral' }[key]
+  return { normal: 'count--ok', watchlist: 'count--alert', stolen: 'count--error', expired: 'count--error', '': 'count--neutral' }[key]
 }
 
 // ─── Stats bar ────────────────────────────────────────────────────────────────
 const statChips = computed(() => [
   { label: 'Total Terdaftar', val: allRows.value.length, icon: 'database',  color: 'var(--primary)' },
-  { label: 'Whitelist',       val: allRows.value.filter(r => r.status === 'whitelist').length, icon: 'verified', color: '#16a34a' },
+  { label: 'Normal',          val: allRows.value.filter(r => r.status === 'normal').length, icon: 'verified', color: '#16a34a' },
   { label: 'Watchlist',       val: allRows.value.filter(r => r.status === 'watchlist').length, icon: 'flag',     color: 'var(--on-tertiary-container)' },
-  { label: 'Blacklist',       val: allRows.value.filter(r => r.status === 'blacklist').length, icon: 'block',    color: '#dc2626' },
+  { label: 'Dicuri/Expired',  val: allRows.value.filter(r => r.status === 'stolen' || r.status === 'expired').length, icon: 'block', color: '#dc2626' },
 ])
 
 // ─── Filters & Sort ────────────────────────────────────────────────────────────
@@ -469,15 +459,16 @@ const editTarget = ref(null)
 
 const formDefault = () => ({
   plate: '', owner: '', region: REGIONS_LIST[0],
-  vehicle_type: 'Sedan', status: 'whitelist', notes: '',
+  vehicle_type: 'Sedan', status: 'normal', notes: '',
 })
 
 const form = ref(formDefault())
 
 const statusOptions = [
-  { val: 'whitelist', label: 'Whitelist', icon: 'verified' },
+  { val: 'normal', label: 'Normal', icon: 'verified' },
   { val: 'watchlist', label: 'Watchlist', icon: 'flag' },
-  { val: 'blacklist', label: 'Blacklist', icon: 'block' },
+  { val: 'stolen', label: 'Dicuri', icon: 'block' },
+  { val: 'expired', label: 'Expired', icon: 'event_busy' },
 ]
 
 function openForm(row) {
@@ -488,11 +479,19 @@ function openForm(row) {
 
 async function saveForm() {
   if (!form.value.plate.trim()) return
+  const payload = {
+    plate_text: form.value.plate,
+    owner_name: form.value.owner,
+    vehicle_type: form.value.vehicle_type,
+    status: form.value.status,
+    notes: form.value.notes,
+  }
   try {
     if (editTarget.value) {
-      await vehicleStore.updateVehicle(editTarget.value.id, form.value)
+      const { plate_text, ...updatePayload } = payload
+      await vehicleStore.updateVehicle(editTarget.value.id, updatePayload)
     } else {
-      await vehicleStore.createVehicle(form.value)
+      await vehicleStore.createVehicle(payload)
     }
   } catch {
     // Backend offline — optimistic local update
@@ -520,7 +519,7 @@ async function deleteConfirmed() {
 
 // ─── Watchlist toggle ─────────────────────────────────────────────────────────
 async function toggleWatchlist(row) {
-  const newStatus = row.status === 'watchlist' ? 'whitelist' : 'watchlist'
+  const newStatus = row.status === 'watchlist' ? 'normal' : 'watchlist'
   try {
     await vehicleStore.flagVehicle(row.id, newStatus)
   } catch {
@@ -534,11 +533,11 @@ function formatDate(ts) {
 }
 
 function statusLabel(s) {
-  return { whitelist: 'Whitelist', watchlist: 'Watchlist', blacklist: 'Blacklist' }[s] ?? s
+  return { normal: 'Normal', watchlist: 'Watchlist', stolen: 'Dicuri', expired: 'Expired' }[s] ?? s
 }
 
 function statusPillClass(s) {
-  return { whitelist: 'sp--ok', watchlist: 'sp--alert', blacklist: 'sp--error' }[s] ?? ''
+  return { normal: 'sp--ok', watchlist: 'sp--alert', stolen: 'sp--error', expired: 'sp--error' }[s] ?? ''
 }
 
 const AVATAR_COLORS = ['#1e3a5f', '#c4440c', '#154c2b', '#7b2d8b', '#1a5c7a', '#8b6914']
@@ -549,16 +548,7 @@ function avatarColor(name) {
 
 // ─── Lifecycle ────────────────────────────────────────────────────────────────
 onMounted(async () => {
-  try {
-    await vehicleStore.fetchVehicles()
-  } catch {
-    // Backend offline — use dummy data locally
-    localRows.value = makeDummy(40)
-  }
-  // If API returned nothing, seed dummy
-  if (!vehicleStore.vehicles.length && !localRows.value.length) {
-    localRows.value = makeDummy(40)
-  }
+  await vehicleStore.fetchVehicles()
 })
 </script>
 
@@ -858,9 +848,10 @@ onMounted(async () => {
   transition: all .12s;
 }
 
-.radio-opt--active.radio-opt--whitelist { border-color: #16a34a; background: rgba(22,163,74,.08); color: #16a34a; }
+.radio-opt--active.radio-opt--normal { border-color: #16a34a; background: rgba(22,163,74,.08); color: #16a34a; }
 .radio-opt--active.radio-opt--watchlist { border-color: var(--on-tertiary-container); background: rgba(83,38,0,.08); color: var(--on-tertiary-container); }
-.radio-opt--active.radio-opt--blacklist { border-color: #dc2626; background: rgba(186,26,26,.08); color: #dc2626; }
+.radio-opt--active.radio-opt--stolen,
+.radio-opt--active.radio-opt--expired { border-color: #dc2626; background: rgba(186,26,26,.08); color: #dc2626; }
 
 /* Modal footer buttons */
 .btn-cancel {

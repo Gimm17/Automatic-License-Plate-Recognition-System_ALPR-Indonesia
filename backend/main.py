@@ -13,8 +13,9 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from config import settings
@@ -32,6 +33,8 @@ from routers import (
 from services.yolo_service import YOLOService
 from services.ocr_service import OCRService
 from services.stream_service import StreamService
+from services.detection_worker import DetectionWorker
+from security import require_api_key
 
 logging.basicConfig(
     level=logging.DEBUG if settings.APP_DEBUG else logging.INFO,
@@ -78,6 +81,31 @@ async def lifespan(app: FastAPI):
             ocr_service=app.state.ocr,
         )
 
+        # Initialize background detection worker. It starts only when enabled.
+        logger.info("Initializing DetectionWorker")
+        worker = DetectionWorker(
+            yolo_service=app.state.yolo,
+            ocr_service=app.state.ocr,
+        )
+        app.state.detection_worker = worker
+
+        if settings.ENABLE_DETECTION_WORKER:
+            # Load active cameras from DB and start processing them.
+            from database import SessionLocal
+            from models.camera import Camera as CameraModel
+            db = SessionLocal()
+            try:
+                active_cams = db.query(CameraModel).filter(CameraModel.is_active == True).all()
+                if active_cams:
+                    worker.start_all(active_cams)
+                    logger.info(f"DetectionWorker started for {len(active_cams)} camera(s)")
+                else:
+                    logger.info("No active cameras found; DetectionWorker idle")
+            finally:
+                db.close()
+        else:
+            logger.info("DetectionWorker disabled by ENABLE_DETECTION_WORKER=false")
+
         logger.info("=== All services ready ===")
     except Exception as e:
         logger.warning(
@@ -88,9 +116,14 @@ async def lifespan(app: FastAPI):
         app.state.yolo   = None
         app.state.ocr    = None
         app.state.stream = None
+        app.state.detection_worker = None
 
     yield
 
+    # Shutdown: stop background detection
+    worker = getattr(app.state, 'detection_worker', None)
+    if worker:
+        worker.stop_all()
     logger.info("=== ALPR Indonesia shutting down ===")
 
 
@@ -103,6 +136,14 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"success": False, "data": None, "message": str(exc.detail)},
+    )
 
 # ─── CORS ─────────────────────────────────────────────────────────────────────
 app.add_middleware(
@@ -119,13 +160,18 @@ _storage = settings.storage_dir
 _storage.mkdir(parents=True, exist_ok=True)
 app.mount("/storage", StaticFiles(directory=str(_storage)), name="storage")
 
+_static = settings.static_dir
+if (_static / "assets").exists():
+    app.mount("/assets", StaticFiles(directory=str(_static / "assets")), name="assets")
+
 # ─── Include routers ──────────────────────────────────────────────────────────
-app.include_router(detection_router)
-app.include_router(cameras_router)
-app.include_router(vehicles_router)
-app.include_router(stats_router)
-app.include_router(export_router)
-app.include_router(stream_api_router)
+_protected_api = [Depends(require_api_key)]
+app.include_router(detection_router, dependencies=_protected_api)
+app.include_router(cameras_router, dependencies=_protected_api)
+app.include_router(vehicles_router, dependencies=_protected_api)
+app.include_router(stats_router, dependencies=_protected_api)
+app.include_router(export_router, dependencies=_protected_api)
+app.include_router(stream_api_router, dependencies=_protected_api)
 app.include_router(ws_router)   # WebSocket — no prefix (path = /ws/stream/{id})
 
 
@@ -146,7 +192,8 @@ async def health_check():
             "status":      "ok",
             "database":    "connected" if db_ok else "unavailable",
             "ocr_engine":  "ready" if ocr_ok else "unavailable",
-            "yolo_model":  "loaded" if hasattr(app.state, "yolo") else "not_loaded",
+            "yolo_model":  "loaded" if getattr(app.state, "yolo", None) is not None else "not_loaded",
+            "worker":      "enabled" if settings.ENABLE_DETECTION_WORKER else "disabled",
             "version":     "1.0.0",
         },
         "message": "ALPR Indonesia API is running",
@@ -154,6 +201,24 @@ async def health_check():
 
 
 # ─── Dev entry point ──────────────────────────────────────────────────────────
+@app.get("/{full_path:path}", include_in_schema=False)
+async def serve_spa(full_path: str):
+    """Serve the Vue SPA build without shadowing API, WS, docs, or storage."""
+    blocked_prefixes = ("api", "ws", "storage", "docs", "redoc", "openapi.json")
+    if full_path.startswith(blocked_prefixes):
+        raise HTTPException(status_code=404, detail="Not found")
+
+    static_file = settings.static_dir / full_path
+    if static_file.is_file():
+        return FileResponse(static_file)
+
+    index_file = settings.static_dir / "index.html"
+    if index_file.exists():
+        return FileResponse(index_file)
+
+    raise HTTPException(status_code=404, detail="SPA build not found")
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(

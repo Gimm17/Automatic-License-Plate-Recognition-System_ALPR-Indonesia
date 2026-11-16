@@ -5,6 +5,7 @@
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { getApiKey } from '@/lib/api'
 
 export const useStreamStore = defineStore('stream', () => {
   // ─── State ─────────────────────────────────────────────────────────────────
@@ -26,10 +27,12 @@ export const useStreamStore = defineStore('stream', () => {
     if (streams.value[cameraId]?.connected) return
 
     const wsBase = import.meta.env.VITE_WS_BASE_URL ||
-      `ws://${window.location.host}`
-    const url = sourceOverride
-      ? `${wsBase}/ws/stream/${cameraId}?source_override=${encodeURIComponent(sourceOverride)}`
-      : `${wsBase}/ws/stream/${cameraId}`
+      `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}`
+    const params = new URLSearchParams()
+    if (sourceOverride) params.set('source_override', sourceOverride)
+    if (getApiKey()) params.set('api_key', getApiKey())
+    const qs = params.toString()
+    const url = `${wsBase}/ws/stream/${cameraId}${qs ? `?${qs}` : ''}`
 
     const ws = new WebSocket(url)
 

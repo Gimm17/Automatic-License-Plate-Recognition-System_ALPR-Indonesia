@@ -93,6 +93,18 @@
           <span class="material-symbols-outlined filter-field__chevron">expand_more</span>
         </div>
 
+        <!-- Source type filter -->
+        <div class="filter-field">
+          <span class="material-symbols-outlined filter-field__icon">input</span>
+          <select v-model="filters.source" class="filter-select" @change="applyFilters">
+            <option value="">Semua Sumber</option>
+            <option value="upload">📷 Upload Gambar</option>
+            <option value="video_batch">🎬 Upload Video</option>
+            <option value="stream">📡 Live Stream</option>
+          </select>
+          <span class="material-symbols-outlined filter-field__chevron">expand_more</span>
+        </div>
+
         <!-- Reset -->
         <button class="btn-reset" @click="resetFilters">
           <span class="material-symbols-outlined" style="font-size:16px">restart_alt</span>
@@ -130,6 +142,7 @@
                   </span>
                 </th>
                 <th class="col-status">Status</th>
+                <th class="col-source">Sumber</th>
                 <th class="col-aksi">Aksi</th>
               </tr>
             </thead>
@@ -145,13 +158,14 @@
                   <td><div class="skel skel--sm"></div></td>
                   <td><div class="skel skel--sm"></div></td>
                   <td><div class="skel skel--xs"></div></td>
+                  <td><div class="skel skel--xs"></div></td>
                   <td></td>
                 </tr>
               </template>
 
               <!-- Empty state -->
               <tr v-else-if="!pagedRows.length">
-                <td colspan="8" class="empty-cell">
+                <td colspan="9" class="empty-cell">
                   <div class="empty-state">
                     <span class="material-symbols-outlined" style="font-size:32px;opacity:.25">
                       search_off
@@ -234,6 +248,13 @@
                   </span>
                 </td>
 
+                <!-- Source badge -->
+                <td class="td-source">
+                  <span class="source-badge" :class="sourceBadgeClass(row.source)">
+                    {{ sourceIcon(row.source) }} {{ sourceLabel(row.source) }}
+                  </span>
+                </td>
+
                 <!-- Aksi -->
                 <td class="td-aksi">
                   <button
@@ -253,7 +274,7 @@
         <div class="pagination">
           <span class="pagination__info">
             Menampilkan {{ paginationStart }}–{{ paginationEnd }} dari
-            <strong>{{ filteredRows.length.toLocaleString('id-ID') }}</strong> entri
+            <strong>{{ (detectionStore.total || 0).toLocaleString('id-ID') }}</strong> entri
           </span>
 
           <div class="pagination__controls">
@@ -366,13 +387,13 @@
 
             <!-- Actions -->
             <div class="drawer__footer">
-              <button class="btn-drawer-action btn-drawer-action--primary">
+              <button class="btn-drawer-action btn-drawer-action--primary" disabled title="Kelola watchlist di menu Kendaraan">
                 <span class="material-symbols-outlined" style="font-size:16px">flag</span>
                 Tandai Watchlist
               </button>
-              <button class="btn-drawer-action">
+              <button class="btn-drawer-action" @click="exportCSV">
                 <span class="material-symbols-outlined" style="font-size:16px">download</span>
-                Export
+                Export CSV
               </button>
             </div>
           </div>
@@ -383,52 +404,56 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import MainLayout from '@/components/layout/MainLayout.vue'
+import { useDetectionStore } from '@/stores/detection'
+import { useCameraStore }    from '@/stores/camera'
+import { useStatsStore }     from '@/stores/stats'
+import api from '@/lib/api'
 
-// ─── Dummy data generator ─────────────────────────────────────────────────────
-const STATUSES   = ['valid', 'valid', 'valid', 'valid', 'watchlist', 'invalid', 'ocr_failed']
-const CAMERAS    = [
-  { id: 1, label: 'Cam-01-Sudirman' },
-  { id: 2, label: 'Cam-02-Thamrin' },
-  { id: 3, label: 'Cam-05-GatotSubroto' },
-  { id: 4, label: 'Cam-12-Pahlawan' },
-]
-const REGIONS = ['Jakarta Pusat', 'Jakarta Selatan', 'Jakarta Utara', 'Surabaya', 'Bandung', 'Yogyakarta', 'Bogor', 'Depok']
-const REGION_CODES = ['B', 'D', 'L', 'AB', 'F', 'T', 'Z', 'N']
-const PLATES = ['B 1234 RFS', 'D 5678 EFG', 'L 9012 HIJ', 'B 3344 KKL', 'F 8877 GG', 'AB 1111 ZZ', 'N 4321 AB', 'T 9876 XY', 'D 1212 PP', 'B 5555 QRS']
+const detectionStore = useDetectionStore()
+const cameraStore    = useCameraStore()
+const statsStore     = useStatsStore()
 
-function makeDummyData(n = 200) {
-  const rows = []
-  const base = new Date()
-  for (let i = 0; i < n; i++) {
-    const status  = STATUSES[Math.floor(Math.random() * STATUSES.length)]
-    const cam     = CAMERAS[Math.floor(Math.random() * CAMERAS.length)]
-    const regIdx  = Math.floor(Math.random() * REGIONS.length)
-    const ts      = new Date(base.getTime() - i * 3700 - Math.random() * 1800000)
-    rows.push({
-      id:           i + 1,
-      plate_text:   status === 'ocr_failed' ? null : PLATES[Math.floor(Math.random() * PLATES.length)],
-      detected_at:  ts.toISOString(),
-      camera_id:    cam.id,
-      camera_label: cam.label,
-      region:       REGIONS[regIdx],
-      region_code:  REGION_CODES[regIdx],
-      confidence:   status === 'ocr_failed' ? null : 0.82 + Math.random() * 0.18,
-      status,
-      source:       Math.random() > 0.4 ? 'stream' : 'upload',
-    })
-  }
-  return rows
-}
-
-const allRows = ref(makeDummyData(200))
-const cameras = ref(CAMERAS)
+// ─── Load data on mount ───────────────────────────────────────────────────────
 const loading = ref(false)
+onMounted(async () => {
+  loading.value = true
+  try {
+    await Promise.all([
+      fetchPage(1),
+      cameraStore.fetchCameras(),
+      statsStore.fetchSummary?.(),
+    ])
+  } finally {
+    loading.value = false
+  }
+})
+
+// ─── All rows from API ────────────────────────────────────────────────────────
+const allRows = computed(() =>
+  (detectionStore.detections || []).map(d => ({
+    id:           d.id,
+    plate_text:   d.plate_text || null,
+    detected_at:  d.detected_at,
+    camera_id:    d.camera_id,
+    camera_label: d.camera_name || `Cam-${d.camera_id ?? '?'}`,
+    region:       d.region || '—',
+    region_code:  d.region_code || '',
+    confidence:   d.confidence ?? null,
+    status:       d.status,
+    source:       d.source_type || 'stream',
+  }))
+)
+
+// ─── Cameras list from store ──────────────────────────────────────────────────
+const cameras = computed(() =>
+  cameraStore.cameras.map(c => ({ id: c.id, label: c.name }))
+)
 
 // ─── Stats ────────────────────────────────────────────────────────────────────
-const totalToday   = computed(() => allRows.value.length)
-const totalFlagged = computed(() => allRows.value.filter(r => r.status === 'watchlist').length)
+const totalToday   = computed(() => statsStore.summary?.total_detections ?? detectionStore.total ?? 0)
+const totalFlagged = computed(() => statsStore.summary?.watchlist_hits ?? 0)
 
 // ─── Filters ──────────────────────────────────────────────────────────────────
 const filters = ref({
@@ -436,10 +461,11 @@ const filters = ref({
   dateRange: 'today',
   camera:    '',
   status:    '',
+  source:    '',
 })
 
 const sortKey = ref('detected_at')
-const sortDir = ref('desc')  // 'asc' | 'desc'
+const sortDir = ref('desc')
 
 function toggleSort(key) {
   if (sortKey.value === key) {
@@ -459,25 +485,20 @@ function sortIcon(key) {
 const filteredRows = computed(() => {
   let rows = [...allRows.value]
 
-  // search
   if (filters.value.search) {
     const q = filters.value.search.toUpperCase().replace(/\s/g, '')
     rows = rows.filter(r => r.plate_text?.replace(/\s/g, '').includes(q))
   }
 
-  // date range (simplified — all dummy data is "today" anyway)
-  // camera
   if (filters.value.camera) {
     const camId = Number(filters.value.camera)
     rows = rows.filter(r => r.camera_id === camId)
   }
 
-  // status
   if (filters.value.status) {
     rows = rows.filter(r => r.status === filters.value.status)
   }
 
-  // sort
   const dir = sortDir.value === 'asc' ? 1 : -1
   rows.sort((a, b) => {
     const va = a[sortKey.value] ?? ''
@@ -494,37 +515,73 @@ const filteredRows = computed(() => {
 let searchTimer = null
 function debouncedFilter() {
   clearTimeout(searchTimer)
-  searchTimer = setTimeout(() => { currentPage.value = 1 }, 250)
+  searchTimer = setTimeout(() => applyFilters(), 250)
 }
 
-function applyFilters() { currentPage.value = 1 }
+function dateRangeStart(range) {
+  const now = new Date()
+  if (range === 'today') now.setHours(0, 0, 0, 0)
+  else if (range === '7d') now.setDate(now.getDate() - 7)
+  else if (range === '30d') now.setDate(now.getDate() - 30)
+  else return ''
+  return now.toISOString()
+}
+
+function syncStoreFilters() {
+  detectionStore.setFilter('search', filters.value.search)
+  detectionStore.setFilter('status', filters.value.status)
+  detectionStore.setFilter('camera_id', filters.value.camera ? Number(filters.value.camera) : null)
+  detectionStore.setFilter('date_from', dateRangeStart(filters.value.dateRange))
+  detectionStore.setFilter('date_to', '')
+  detectionStore.setFilter('source_type', filters.value.source)
+}
+
+async function fetchPage(page = 1) {
+  detectionStore.limit = perPage.value
+  syncStoreFilters()
+  await detectionStore.fetchDetections(page)
+  currentPage.value = detectionStore.page || page
+}
+
+function applyFilters() {
+  currentPage.value = 1
+  fetchPage(1)
+}
 
 function resetFilters() {
-  filters.value = { search: '', dateRange: 'today', camera: '', status: '' }
-  currentPage.value = 1
+  filters.value = { search: '', dateRange: 'today', camera: '', status: '', source: '' }
+  applyFilters()
 }
 
 // ─── Pagination ───────────────────────────────────────────────────────────────
 const perPage     = ref(25)
 const currentPage = ref(1)
 
-const totalPages = computed(() => Math.max(1, Math.ceil(filteredRows.value.length / perPage.value)))
+const totalPages = computed(() => Math.max(1, Math.ceil((detectionStore.total || 0) / perPage.value)))
 
 watch(filteredRows, () => {
   if (currentPage.value > totalPages.value) currentPage.value = 1
 })
 
+watch(currentPage, (page, prev) => {
+  if (page !== prev && page !== detectionStore.page) {
+    fetchPage(page)
+  }
+})
+
+watch(perPage, () => {
+  currentPage.value = 1
+  fetchPage(1)
+})
+
 const paginationStart = computed(() =>
-  filteredRows.value.length === 0 ? 0 : (currentPage.value - 1) * perPage.value + 1
+  (detectionStore.total || 0) === 0 ? 0 : (currentPage.value - 1) * perPage.value + 1
 )
 const paginationEnd = computed(() =>
-  Math.min(currentPage.value * perPage.value, filteredRows.value.length)
+  Math.min((currentPage.value - 1) * perPage.value + filteredRows.value.length, detectionStore.total || 0)
 )
 
-const pagedRows = computed(() => {
-  const s = (currentPage.value - 1) * perPage.value
-  return filteredRows.value.slice(s, s + perPage.value)
-})
+const pagedRows = computed(() => filteredRows.value)
 
 const visiblePages = computed(() => {
   const total = totalPages.value
@@ -577,22 +634,58 @@ function statusBadgeClass(status) {
   }[status] ?? ''
 }
 
+function sourceLabel(source) {
+  return {
+    upload:      'Upload',
+    video_batch: 'Video',
+    stream:      'Live',
+  }[source] ?? source ?? 'N/A'
+}
+
+function sourceIcon(source) {
+  return {
+    upload:      '📷',
+    video_batch: '🎬',
+    stream:      '📡',
+  }[source] ?? '❓'
+}
+
+function sourceBadgeClass(source) {
+  return {
+    upload:      'source--upload',
+    video_batch: 'source--video',
+    stream:      'source--stream',
+  }[source] ?? ''
+}
+
 // ─── Export ───────────────────────────────────────────────────────────────────
-function exportCSV() {
-  const cols = ['id', 'plate_text', 'detected_at', 'camera_label', 'region', 'confidence', 'status']
-  const header = cols.join(',')
-  const rows = filteredRows.value.map(r =>
-    cols.map(c => JSON.stringify(r[c] ?? '')).join(',')
-  )
-  download([header, ...rows].join('\n'), 'riwayat_deteksi.csv', 'text/csv')
+function exportParams() {
+  return {
+    search: filters.value.search || undefined,
+    status: filters.value.status || undefined,
+    camera_id: filters.value.camera || undefined,
+    date_from: dateRangeStart(filters.value.dateRange) || undefined,
+    source_type: filters.value.source || undefined,
+  }
 }
 
-function exportJSON() {
-  download(JSON.stringify(filteredRows.value, null, 2), 'riwayat_deteksi.json', 'application/json')
+async function exportCSV() {
+  const blob = await api.get('/api/export/csv', {
+    params: exportParams(),
+    responseType: 'blob',
+  })
+  downloadBlob(blob, 'riwayat_deteksi.csv')
 }
 
-function download(content, filename, mimeType) {
-  const blob = new Blob([content], { type: mimeType })
+async function exportJSON() {
+  const blob = await api.get('/api/export/json', {
+    params: exportParams(),
+    responseType: 'blob',
+  })
+  downloadBlob(blob, 'riwayat_deteksi.json')
+}
+
+function downloadBlob(blob, filename) {
   const url  = URL.createObjectURL(blob)
   const a    = document.createElement('a')
   a.href     = url
@@ -1224,6 +1317,14 @@ function download(content, filename, mimeType) {
 }
 
 .btn-drawer-action:hover { background-color: var(--surface-container-high); color: var(--primary); }
+.btn-drawer-action:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.btn-drawer-action:disabled:hover {
+  background-color: var(--surface-container-low);
+  color: var(--on-surface-variant);
+}
 
 .btn-drawer-action--primary {
   background: linear-gradient(135deg, var(--primary), var(--primary-container));
@@ -1231,6 +1332,7 @@ function download(content, filename, mimeType) {
   border: none;
 }
 .btn-drawer-action--primary:hover { opacity: 0.88; color: var(--on-primary); }
+.btn-drawer-action--primary:disabled:hover { color: var(--on-primary); }
 
 /* ─── Drawer transition ──────────────────────────────────────────────────────── */
 .drawer-enter-active,
@@ -1246,3 +1348,17 @@ function download(content, filename, mimeType) {
 .drawer-leave-to      { opacity: 0; }
 .drawer-leave-to .drawer  { transform: translateX(100%); }
 </style>
+.col-source { width: 100px; }
+
+/* Source badges */
+.source-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.source--upload { background: rgba(33,150,243,.12); color: #1976d2; }
+.source--video  { background: rgba(156,39,176,.12); color: #7b1fa2; }
+.source--stream { background: rgba(76,175,80,.12);  color: #388e3c; }
+.td-source { text-align: center; }

@@ -15,19 +15,19 @@
         />
         <MetricCard
           label="Akurasi OCR"
-          :value="stats.ocr_accuracy ?? stats.ocrAccuracy"
+          :value="stats.ocr_accuracy_pct ?? stats.ocrAccuracy"
           unit="%"
           icon="center_focus_strong"
           :trend="0.2"
           trend-label="avg"
         />
         <MetricCard
-          label="Avg Latency"
-          :value="stats.avg_latency_ms ?? stats.avgLatency"
-          unit="ms"
+          label="Avg Confidence"
+          :value="stats.avg_confidence_pct ?? stats.avgConfidence"
+          unit="%"
           icon="speed"
           :trend="null"
-          sub-label="Optimal Range"
+          sub-label="YOLO Mean"
         />
         <MetricCard
           label="Alert Aktif"
@@ -49,11 +49,24 @@
           <!-- Panel header -->
           <div class="live-panel__header">
             <div class="live-panel__title-group">
-              <span class="live-pulse"></span>
-              <h2 class="live-panel__title">Pintu Masuk Utama – Cam 01</h2>
+              <span class="live-pulse" v-if="selectedCam"></span>
+              <h2 class="live-panel__title">
+                {{ selectedCam ? selectedCam.name : 'Belum ada kamera aktif' }}
+              </h2>
             </div>
             <div class="live-panel__meta">
-              <span class="live-panel__badge">1080p / 30fps</span>
+              <!-- Camera selector dropdown -->
+              <select
+                v-if="activeCameras.length > 1"
+                v-model="selectedCamId"
+                class="cam-selector"
+              >
+                <option
+                  v-for="cam in activeCameras"
+                  :key="cam.id"
+                  :value="cam.id"
+                >{{ cam.name }}</option>
+              </select>
               <RouterLink to="/live" class="live-panel__goto">
                 <span class="material-symbols-outlined" style="font-size:15px">open_in_new</span>
                 Full Monitor
@@ -63,31 +76,41 @@
 
           <!-- Feed canvas -->
           <div class="live-panel__feed">
-            <!-- Placeholder video frame -->
-            <div class="live-panel__placeholder">
-              <span class="material-symbols-outlined" style="font-size:48px;color:rgba(255,255,255,0.15)">
-                videocam
-              </span>
-              <p style="color:rgba(255,255,255,0.4);font-size:12px;margin-top:8px">
-                Hubungkan kamera untuk memulai live feed
-              </p>
+            <!-- HLS Video player -->
+            <video
+              v-if="selectedCam"
+              ref="dashVideoEl"
+              class="live-panel__video"
+              muted
+              playsinline
+              autoplay
+            />
+
+            <!-- Loading overlay -->
+            <div v-if="selectedCam && !dashVideoLoaded && !dashVideoError" class="live-panel__placeholder">
+              <span class="material-symbols-outlined" style="font-size:48px;color:rgba(255,255,255,0.15)">videocam</span>
+              <p style="color:rgba(255,255,255,0.4);font-size:12px;margin-top:8px">Memuat stream…</p>
             </div>
 
-            <!-- AI annotation overlay (demo) -->
-            <div class="live-panel__annotation" v-if="demoAnnotation.show">
-              <div class="annotation-box">
-                <div class="annotation-chip glass">
-                  <span class="annotation-chip__plate">{{ demoAnnotation.plate }}</span>
-                  <span class="annotation-chip__conf">{{ demoAnnotation.conf }}%</span>
-                </div>
-              </div>
+            <!-- Error state -->
+            <div v-if="dashVideoError" class="live-panel__placeholder">
+              <span class="material-symbols-outlined" style="font-size:36px;color:rgba(255,255,255,0.15)">signal_disconnected</span>
+              <p style="color:rgba(255,255,255,0.4);font-size:12px;margin-top:8px">Stream tidak dapat dimuat</p>
+            </div>
+
+            <!-- No cameras state -->
+            <div v-if="!selectedCam" class="live-panel__placeholder">
+              <span class="material-symbols-outlined" style="font-size:48px;color:rgba(255,255,255,0.15)">videocam</span>
+              <p style="color:rgba(255,255,255,0.4);font-size:12px;margin-top:8px">
+                Tambahkan kamera di
+                <RouterLink to="/pengaturan" style="color:rgba(255,255,255,0.6);text-decoration:underline">Pengaturan</RouterLink>
+              </p>
             </div>
 
             <!-- Bottom metadata badges -->
             <div class="live-panel__meta-badges">
-              <span class="meta-badge glass">CONF: HIGH</span>
-              <span class="meta-badge glass">TYPE: {{ demoAnnotation.type }}</span>
-              <span class="meta-badge glass">REG: {{ demoAnnotation.region }}</span>
+              <span class="meta-badge glass">{{ cameraItems.length }} Kamera Terdaftar</span>
+              <span class="meta-badge glass">{{ cameraItems.filter(c=>c.is_active).length }} Aktif</span>
             </div>
           </div>
         </div>
@@ -157,7 +180,8 @@
 </template>
 
 <script setup>
-import { reactive, ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import Hls from 'hls.js'
 import MainLayout from '@/components/layout/MainLayout.vue'
 import MetricCard from '@/components/dashboard/MetricCard.vue'
 import DetectionLog from '@/components/dashboard/DetectionLog.vue'
@@ -171,39 +195,93 @@ const statsStore     = useStatsStore()
 const cameraStore    = useCameraStore()
 const detectionStore = useDetectionStore()
 
-// ─── Metric cards: live from API only ───────────────────────────────────────
-const EMPTY_STATS = { total_detections: 0, ocr_accuracy: 0, avg_latency_ms: 0, watchlist_hits: 0 }
+// ─── Metric cards ───────────────────────────────────────────────────────────────────────
+const EMPTY_STATS = { total_detections: 0, ocr_accuracy_pct: 0, avg_confidence_pct: 0, watchlist_hits: 0 }
 const stats = computed(() => statsStore.summary || EMPTY_STATS)
 
-// ─── Detection log items (live from API only) ─────────────────────────────────
-const logItems = computed(() => detectionStore.detections)
-
-// ─── Chart data (live from API only) ─────────────────────────────────────────
-const chartItems = computed(() => statsStore.chartData || [])
-
-// ─── Source / Region breakdown (live from API only) ──────────────────────────
-const sourceItems = computed(() => statsStore.cameraData || [])
+// ─── Detection log / chart / breakdown ───────────────────────────────────────────────────────
+const logItems    = computed(() => detectionStore.detections)
+const chartItems  = computed(() => statsStore.chartData || [])
+const sourceItems = computed(() => statsStore.sourceData || [])
 const regionItems = computed(() => statsStore.regionData || [])
-
-// ─── Camera status row (live from API only) ───────────────────────────────────
 const cameraItems = computed(() => cameraStore.cameras)
 
-// ─── Handlers ────────────────────────────────────────────────────────────────
-function handleRefresh() { detectionStore.fetchDetections() }
-function handleDetectionSelect(item) { /* TODO: open global detail drawer */ }
+// ─── Camera selector + HLS player ──────────────────────────────────────────────────────────
+const activeCameras  = computed(() => cameraStore.cameras.filter(c => c.is_active))
+const selectedCamId  = ref(null)
+const selectedCam    = computed(() => activeCameras.value.find(c => c.id === selectedCamId.value) || null)
+const dashVideoEl    = ref(null)
+const dashVideoLoaded = ref(false)
+const dashVideoError  = ref(false)
 
-// ─── Lifecycle ───────────────────────────────────────────────────────────────
-onMounted(() => {
-  // Start stats auto-refresh (30s)
+let dashHls = null
+
+function destroyDashHls() {
+  if (dashHls) { dashHls.destroy(); dashHls = null }
+}
+
+function initDashHls() {
+  destroyDashHls()
+  if (!selectedCam.value || !dashVideoEl.value) return
+
+  const url = selectedCam.value.rtsp_url
+  if (!url) return
+
+  dashVideoLoaded.value = false
+  dashVideoError.value  = false
+
+  if (Hls.isSupported()) {
+    dashHls = new Hls({
+      enableWorker: true,
+      manifestLoadingMaxRetry: 8,
+      manifestLoadingRetryDelay: 2000,
+    })
+    dashHls.loadSource(url)
+    dashHls.attachMedia(dashVideoEl.value)
+    dashHls.on(Hls.Events.MANIFEST_PARSED, () => {
+      dashVideoEl.value?.play().catch(() => {})
+      dashVideoLoaded.value = true
+    })
+    dashHls.on(Hls.Events.ERROR, (_, data) => {
+      if (data.fatal) { dashVideoError.value = true }
+    })
+  } else if (dashVideoEl.value.canPlayType('application/vnd.apple.mpegurl')) {
+    dashVideoEl.value.src = url
+    dashVideoEl.value.play().catch(() => {})
+    dashVideoLoaded.value = true
+  } else {
+    dashVideoError.value = true
+  }
+}
+
+// Auto-select first camera when cameras load
+watch(activeCameras, (cams) => {
+  if (cams.length && !selectedCamId.value) {
+    selectedCamId.value = cams[0].id
+  }
+}, { immediate: true })
+
+// Re-init HLS when selected camera changes
+watch(selectedCam, () => {
+  dashVideoLoaded.value = false
+  dashVideoError.value  = false
+  setTimeout(initDashHls, 150)
+})
+
+// ─── Handlers ──────────────────────────────────────────────────────────────────────────────
+function handleRefresh() { detectionStore.fetchDetections() }
+function handleDetectionSelect() { /* TODO: open global detail drawer */ }
+
+// ─── Lifecycle ──────────────────────────────────────────────────────────────────────────────
+onMounted(async () => {
   statsStore.startAutoRefresh(30_000)
-  // Fetch cameras for status row
-  cameraStore.fetchCameras()
-  // Fetch recent detections for log
+  await cameraStore.fetchCameras()
   detectionStore.fetchDetections()
 })
 
 onUnmounted(() => {
   statsStore.stopAutoRefresh()
+  destroyDashHls()
 })
 </script>
 
@@ -267,15 +345,6 @@ onUnmounted(() => {
   gap: 12px;
 }
 
-.live-panel__badge {
-  font-family: 'Courier New', monospace;
-  font-size: 11px;
-  color: var(--on-surface-variant);
-  background-color: var(--surface-container);
-  padding: 3px 8px;
-  border-radius: 4px;
-}
-
 .live-panel__goto {
   display: flex;
   align-items: center;
@@ -288,7 +357,7 @@ onUnmounted(() => {
 }
 .live-panel__goto:hover { color: var(--primary); }
 
-/* ─── Feed area ──────────────────────────────────────────────────────────────── */
+/* ─── Feed area ─────────────────────────────────────────────────────────────────────────────── */
 .live-panel__feed {
   flex: 1;
   background-color: #0b151c;
@@ -299,6 +368,29 @@ onUnmounted(() => {
   justify-content: center;
   overflow: hidden;
 }
+
+.live-panel__video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ─── Camera selector ──────────────────────────────────────────────────────────────────────────── */
+.cam-selector {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+  background: var(--surface-container);
+  border: 1px solid rgba(195,199,203,0.3);
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.cam-selector:hover { border-color: var(--primary); }
 
 .live-panel__placeholder {
   display: flex;

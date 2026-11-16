@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ALPR Stream Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#f5fafa;--surface:#fff;--surface-dim:#e4e9e9;--primary:#0f1f29;--primary-c:#25343f;--on-primary:#fff;--tertiary:#c45511;--tertiary-c:#fff3e0;--success:#16a34a;--success-bg:#dcfce7;--danger:#dc2626;--danger-bg:#fee2e2;--text:#0f1f29;--text-dim:#6b7280;--border:#dee3e3;--radius:12px;--radius-sm:8px}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.app{max-width:1200px;margin:0 auto;padding:24px 20px}
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:32px;flex-wrap:wrap;gap:12px}
+.header h1{font-size:24px;font-weight:800}.header h1 span{color:var(--tertiary)}
+.header p{font-size:13px;color:var(--text-dim);margin-top:2px}
+.upload-zone{border:2px dashed var(--border);border-radius:var(--radius);padding:40px;text-align:center;background:var(--surface);cursor:pointer;transition:all .2s;position:relative;margin-bottom:24px}
+.upload-zone:hover,.upload-zone.dragover{border-color:var(--tertiary);background:var(--tertiary-c)}
+.upload-zone .mi{font-size:48px;color:var(--tertiary);margin-bottom:8px}
+.upload-zone h3{font-size:16px;font-weight:600;margin-bottom:4px}
+.upload-zone p{font-size:13px;color:var(--text-dim)}
+.upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer}
+.upload-form{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:24px;display:none}
+.upload-form.show{display:block}
+.file-info{display:flex;align-items:center;gap:12px;margin-bottom:16px;padding:12px;background:var(--tertiary-c);border-radius:var(--radius-sm)}
+.file-info .mi{color:var(--tertiary);font-size:28px}
+.file-info .name{font-weight:600;font-size:14px}
+.file-info .size{font-size:12px;color:var(--text-dim)}
+label.field{font-size:13px;font-weight:500;display:block;margin-bottom:4px}
+input.field{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:inherit}
+.btn{padding:10px 20px;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px;transition:all .15s}
+.btn-primary{background:var(--primary);color:var(--on-primary)}.btn-primary:hover{background:var(--primary-c)}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-success{background:var(--success);color:#fff}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}.btn-outline:hover{background:var(--surface-dim)}
+.btn-sm{padding:6px 12px;font-size:12px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.progress-bar{height:4px;background:var(--surface-dim);border-radius:2px;margin-top:12px;overflow:hidden;display:none}
+.progress-bar.show{display:block}
+.progress-bar .fill{height:100%;background:var(--tertiary);width:0%;transition:width .3s}
+.streams-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.streams-header h2{font-size:18px;font-weight:700}
+.stream-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:16px}
+.stream-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:box-shadow .2s}
+.stream-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.08)}
+.preview{position:relative;aspect-ratio:16/9;background:#1a1a2e;overflow:hidden}
+.preview video{width:100%;height:100%;object-fit:contain;background:#0a0a14}
+.preview .off{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:13px;flex-direction:column;gap:8px}
+.preview .off .mi{font-size:36px;opacity:.5}
+.badge{position:absolute;top:8px;left:8px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;display:flex;align-items:center;gap:4px}
+.badge-live{background:var(--success-bg);color:var(--success)}
+.badge-live::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--success);animation:pulse 1.5s infinite}
+.badge-off{background:var(--danger-bg);color:var(--danger)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.card-info{padding:16px}
+.card-info h3{font-size:15px;font-weight:600;margin-bottom:4px}
+.meta{font-size:12px;color:var(--text-dim);margin-bottom:12px;display:flex;gap:12px;flex-wrap:wrap}
+.meta span{display:flex;align-items:center;gap:3px}
+.url-box{background:#f0f4f8;border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;font-family:monospace;font-size:11px;word-break:break-all;margin-bottom:12px;cursor:pointer;transition:background .15s;display:flex;align-items:center;gap:8px}
+.url-box:hover{background:#e2e8f0}
+.url-box .u{flex:1;color:var(--primary);user-select:all}
+.actions{display:flex;gap:6px;flex-wrap:wrap}
+.toast{position:fixed;bottom:20px;right:20px;padding:12px 20px;border-radius:var(--radius-sm);color:#fff;font-size:13px;font-weight:500;z-index:9999;transform:translateY(80px);opacity:0;transition:all .3s;pointer-events:none}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.s{background:var(--success)}.toast.e{background:var(--danger)}.toast.i{background:var(--primary)}
+.empty{text-align:center;padding:60px 20px;color:var(--text-dim)}
+.empty .mi{font-size:64px;opacity:.3;margin-bottom:12px}
+.empty h3{font-size:16px;font-weight:600;color:var(--text);margin-bottom:4px}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.modal-bg.show{opacity:1;pointer-events:all}
+.modal{background:var(--surface);border-radius:var(--radius);padding:24px;width:90%;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,.15)}
+.modal h3{font-size:16px;font-weight:700;margin-bottom:16px}
+.modal .ma{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.mi{font-family:'Material Symbols Outlined'}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div><h1>Stream <span>Simulator</span></h1><p>Upload video lalu lintas &rarr; Generate HLS Live Stream untuk ALPR Indonesia</p></div>
+    <button class="btn btn-outline btn-sm" onclick="refreshStreams()"><span class="mi" style="font-size:16px">refresh</span> Refresh</button>
+  </div>
+  <div class="upload-zone" id="dropZone" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="handleDrop(event)">
+    <input type="file" accept="video/*" onchange="handleFileSelect(this.files[0])">
+    <span class="mi">cloud_upload</span>
+    <h3>Upload Video Lalu Lintas</h3>
+    <p>Drag &amp; drop atau klik &bull; MP4, AVI, MOV, MKV (max 500MB)</p>
+  </div>
+  <div class="upload-form" id="uploadForm">
+    <div class="file-info"><span class="mi">movie</span><div><div class="name" id="fileName">-</div><div class="size" id="fileSize">-</div></div><button class="btn btn-outline btn-sm" onclick="cancelUpload()" style="margin-left:auto">Batal</button></div>
+    <div style="margin-bottom:12px"><label class="field">Nama Stream</label><input class="field" id="streamName" placeholder="Contoh: Jl. Sudirman KM 5"></div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn btn-primary" id="uploadBtn" onclick="doUpload()"><span class="mi" style="font-size:16px">play_arrow</span> Upload &amp; Start</button>
+      <label style="font-size:12px;display:flex;align-items:center;gap:4px;color:var(--text-dim)"><input type="checkbox" id="autoStart" checked> Auto-start</label>
+    </div>
+    <div class="progress-bar" id="pb"><div class="fill" id="pf"></div></div>
+  </div>
+  <div class="streams-header"><h2>Active Streams</h2><span style="font-size:13px;color:var(--text-dim)" id="sc">0</span></div>
+  <div id="sl"></div>
+</div>
+<div class="modal-bg" id="rm"><div class="modal">
+  <h3>Daftarkan ke ALPR Indonesia</h3>
+  <div style="margin-bottom:12px"><label class="field">ALPR Backend URL</label><input class="field" id="au" value="http://localhost:8000"></div>
+  <div style="margin-bottom:12px"><label class="field">Nama Kamera</label><input class="field" id="acn" placeholder="Auto"></div>
+  <div style="margin-bottom:12px"><label class="field">Lokasi</label><input class="field" id="al" value="Stream Simulator"></div>
+  <div class="ma"><button class="btn btn-outline" onclick="closeModal()">Batal</button><button class="btn btn-success" id="rb" onclick="doRegister()"><span class="mi" style="font-size:16px">link</span> Daftarkan</button></div>
+</div></div>
+<div class="toast" id="toast"></div>
+<script>
+var selectedFile=null,regId=null,hlsMap={};
+function toast(m,t){var e=document.getElementById('toast');e.textContent=m;e.className='toast '+(t||'s')+' show';setTimeout(function(){e.classList.remove('show')},3000)}
+function handleDrop(e){e.preventDefault();document.getElementById('dropZone').classList.remove('dragover');if(e.dataTransfer.files[0])handleFileSelect(e.dataTransfer.files[0])}
+function handleFileSelect(f){if(!f)return;selectedFile=f;document.getElementById('fileName').textContent=f.name;document.getElementById('fileSize').textContent=(f.size/1048576).toFixed(1)+' MB';document.getElementById('streamName').value=f.name.replace(/\.[^.]+$/,'');document.getElementById('uploadForm').classList.add('show')}
+function cancelUpload(){selectedFile=null;document.getElementById('uploadForm').classList.remove('show')}
+function doUpload(){if(!selectedFile)return;var btn=document.getElementById('uploadBtn');btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Uploading...';var pb=document.getElementById('pb');pb.classList.add('show');var pf=document.getElementById('pf');var fd=new FormData();fd.append('file',selectedFile);fd.append('name',document.getElementById('streamName').value);fd.append('auto_start',document.getElementById('autoStart').checked);var x=new XMLHttpRequest();x.open('POST','/api/upload');x.upload.onprogress=function(e){if(e.lengthComputable)pf.style.width=Math.round(e.loaded/e.total*100)+'%'};x.onload=function(){try{var r=JSON.parse(x.responseText);if(r.success){toast('Stream berhasil dibuat!');cancelUpload();setTimeout(refreshStreams,500)}else toast(r.message||'Gagal','e')}catch(e){toast('Error: '+e,'e')}btn.disabled=false;btn.innerHTML='<span class="mi" style="font-size:16px">play_arrow</span> Upload & Start';pb.classList.remove('show');pf.style.width='0%'};x.onerror=function(){toast('Network error','e');btn.disabled=false;pb.classList.remove('show')};x.send(fd)}
+function refreshStreams(){fetch('/api/streams').then(function(r){return r.json()}).then(function(j){render(j.data||[])}).catch(function(e){console.error(e)})}
+function render(list){var el=document.getElementById('sl');document.getElementById('sc').textContent=list.length+' stream'+(list.length!==1?'s':'');if(!list.length){el.innerHTML='<div class="empty"><span class="mi">videocam_off</span><h3>Belum ada stream</h3><p>Upload video lalu lintas untuk membuat stream simulasi.</p></div>';return}var h='<div class="stream-grid">';for(var i=0;i<list.length;i++){var s=list[i],live=s.status==='streaming',vi=s.video_info||{};h+='<div class="stream-card"><div class="preview">';if(live){h+='<video id="v-'+s.id+'" muted autoplay playsinline></video><span class="badge badge-live">LIVE</span>'}else{h+='<div class="off"><span class="mi">videocam_off</span>Offline</div><span class="badge badge-off">OFF</span>'}h+='</div><div class="card-info"><h3>'+s.name+'</h3><div class="meta"><span><span class="mi" style="font-size:14px">schedule</span>'+(vi.duration||0)+'s</span><span><span class="mi" style="font-size:14px">aspect_ratio</span>'+(vi.width||0)+'x'+(vi.height||0)+'</span><span><span class="mi" style="font-size:14px">speed</span>'+(vi.fps||0)+' fps</span><span><span class="mi" style="font-size:14px">sd_storage</span>'+(vi.size_mb||0)+' MB</span></div>';if(live&&s.hls_url){h+='<div class="url-box" onclick="copyUrl(\''+s.hls_url+'\')"><span class="u">'+s.hls_url+'</span><span class="mi" style="font-size:16px;color:var(--text-dim)">content_copy</span></div>'}h+='<div class="actions">';if(live){h+='<button class="btn btn-danger btn-sm" onclick="act(\''+s.id+'\',\'stop\')"><span class="mi" style="font-size:14px">stop</span> Stop</button>';h+='<button class="btn btn-outline btn-sm" onclick="act(\''+s.id+'\',\'restart\')"><span class="mi" style="font-size:14px">refresh</span> Restart</button>';h+='<a class="btn btn-outline btn-sm" href="/player/'+s.id+'" target="_blank"><span class="mi" style="font-size:14px">open_in_new</span> Player</a>';h+='<button class="btn btn-success btn-sm" onclick="openReg(\''+s.id+'\',\''+s.name.replace(/'/g,"\\'")+'\')"><span class="mi" style="font-size:14px">link</span> ALPR</button>'}else{h+='<button class="btn btn-primary btn-sm" onclick="act(\''+s.id+'\',\'start\')"><span class="mi" style="font-size:14px">play_arrow</span> Start</button>'}h+='<button class="btn btn-outline btn-sm" onclick="del(\''+s.id+'\')" style="margin-left:auto"><span class="mi" style="font-size:14px;color:var(--danger)">delete</span></button>';h+='</div></div></div>'}h+='</div>';el.innerHTML=h;for(var j=0;j<list.length;j++){if(list[j].status==='streaming'&&list[j].hls_url){(function(id,url){setTimeout(function(){initHls(id,url)},1000)})(list[j].id,list[j].hls_url)}}}
+function initHls(id,url){var v=document.getElementById('v-'+id);if(!v)return;if(hlsMap[id]){hlsMap[id].destroy();delete hlsMap[id]}if(Hls.isSupported()){var h=new Hls({liveSyncDuration:3,liveMaxLatencyDuration:10,manifestLoadingMaxRetry:20,manifestLoadingRetryDelay:2000,fragLoadingMaxRetry:6});h.loadSource(url);h.attachMedia(v);hlsMap[id]=h;h.on(Hls.Events.MANIFEST_PARSED,function(){v.play().catch(function(){})});h.on(Hls.Events.ERROR,function(_,d){if(d.fatal){h.destroy();delete hlsMap[id];setTimeout(function(){initHls(id,url)},3000)}})}else if(v.canPlayType('application/vnd.apple.mpegurl')){v.src=url;v.play().catch(function(){})}}
+function copyUrl(u){navigator.clipboard.writeText(u).then(function(){toast('URL disalin!','i')})}
+function act(id,a){fetch('/api/streams/'+id+'/'+a,{method:'POST'}).then(function(r){return r.json()}).then(function(j){if(j.success){toast(j.message);setTimeout(refreshStreams,2000)}else toast(j.message||'Error','e')}).catch(function(e){toast('Error','e')})}
+function del(id){if(!confirm('Hapus stream ini?'))return;if(hlsMap[id]){hlsMap[id].destroy();delete hlsMap[id]}fetch('/api/streams/'+id,{method:'DELETE'}).then(function(r){return r.json()}).then(function(j){if(j.success){toast('Dihapus');refreshStreams()}else toast(j.message,'e')}).catch(function(e){toast('Error','e')})}
+function openReg(id,name){regId=id;document.getElementById('acn').value=name;document.getElementById('rm').classList.add('show')}
+function closeModal(){document.getElementById('rm').classList.remove('show')}
+function doRegister(){var btn=document.getElementById('rb');btn.disabled=true;btn.innerHTML='<span class="spinner"></span> ...';var fd=new FormData();fd.append('alpr_url',document.getElementById('au').value);fd.append('camera_name',document.getElementById('acn').value);fd.append('location',document.getElementById('al').value);fetch('/api/streams/'+regId+'/register-to-alpr',{method:'POST',body:fd}).then(function(r){return r.json()}).then(function(j){if(j.success){toast(j.message);closeModal()}else toast(j.message||'Gagal','e')}).catch(function(e){toast('Error','e')});btn.disabled=false;btn.innerHTML='<span class="mi" style="font-size:16px">link</span> Daftarkan'}
+refreshStreams();setInterval(refreshStreams,10000);
+</script>
+</body>
+</html>

@@ -30,16 +30,12 @@
         @drop.prevent="handleDrop"
         @click="triggerFileInput"
       >
-        <!-- Decorative blur blobs -->
-        <div class="drop-zone__blob drop-zone__blob--tr"></div>
-        <div class="drop-zone__blob drop-zone__blob--bl"></div>
-
         <!-- Hidden file input -->
         <input
           ref="fileInputRef"
           type="file"
           multiple
-          accept="image/jpeg,image/png,image/webp,image/tiff,video/mp4,video/x-matroska,video/avi"
+          accept="image/jpeg,image/png,image/bmp,image/webp,video/mp4,video/x-msvideo,video/quicktime"
           class="hidden"
           @change="handleFileInput"
         />
@@ -52,7 +48,7 @@
           {{ isDragging ? 'Lepas file di sini…' : 'Drag & Drop Imagery' }}
         </h3>
         <p class="drop-zone__desc">
-          Mendukung JPG, PNG, TIFF, WebP (gambar) dan MP4, MKV, AVI (video).
+          Mendukung JPG, PNG, BMP, WebP (gambar) dan MP4, AVI, MOV (video).
           Multi-vehicle akan di-segmentasi otomatis.
         </p>
 
@@ -63,7 +59,7 @@
 
         <!-- Format chips -->
         <div class="drop-zone__chips">
-          <span class="chip" v-for="fmt in ['JPG','PNG','TIFF','WebP','MP4','MKV']" :key="fmt">
+          <span class="chip" v-for="fmt in ['JPG','PNG','BMP','WebP','MP4','AVI','MOV']" :key="fmt">
             {{ fmt }}
           </span>
         </div>
@@ -99,6 +95,9 @@
             <span class="queue-item__meta">
               {{ item.type === 'video' ? 'Video' : 'Gambar' }} · {{ formatBytes(item.size) }}
             </span>
+            <span v-if="item.status === 'error' && item.errorMessage" class="queue-item__error">
+              {{ item.errorMessage }}
+            </span>
 
             <!-- Progress bar (visible while processing) -->
             <div v-if="item.status === 'processing'" class="queue-item__bar">
@@ -118,6 +117,14 @@
               class="material-symbols-outlined status-icon status-icon--error"
               style="font-variation-settings:'FILL' 1"
             >error</span>
+            <button
+              v-if="item.status === 'error'"
+              class="status-retry"
+              title="Coba proses ulang"
+              @click.stop="processItem(item)"
+            >
+              <span class="material-symbols-outlined" style="font-size:16px">refresh</span>
+            </button>
             <span
               v-else-if="item.status === 'processing'"
               class="spinner"
@@ -128,9 +135,9 @@
             >schedule</span>
           </div>
 
-          <!-- Remove btn (pending only) -->
+          <!-- Remove btn (pending/error only) -->
           <button
-            v-if="item.status === 'pending'"
+            v-if="item.status === 'pending' || item.status === 'error'"
             class="queue-item__remove"
             @click.stop="removeItem(item.id)"
           >
@@ -140,9 +147,9 @@
       </TransitionGroup>
 
       <!-- Process All button -->
-      <div v-if="fileQueue.some(f => f.status === 'pending')" class="process-bar">
+      <div v-if="processableItems.length" class="process-bar">
         <span class="process-bar__info">
-          {{ fileQueue.filter(f => f.status === 'pending').length }} file menunggu proses
+          {{ processableItems.length }} file perlu proses
         </span>
         <button class="btn-process" @click="processAll">
           <span class="material-symbols-outlined" style="font-size:16px">play_arrow</span>
@@ -181,8 +188,8 @@
             <!-- Image container with BBox overlays -->
             <div class="viewer-card__canvas" ref="imageCanvasRef">
               <img
-                v-if="activeItem.previewUrl"
-                :src="activeItem.previewUrl"
+                v-if="activeItem.displayUrl"
+                :src="activeItem.displayUrl"
                 alt="Source Vehicle"
                 class="viewer-card__img"
                 ref="imageRef"
@@ -192,11 +199,11 @@
               <div v-else class="viewer-card__placeholder">
                 <span class="material-symbols-outlined" style="font-size:48px;opacity:.2">movie</span>
                 <p style="opacity:.4;font-size:12px;margin-top:8px">
-                  Preview tidak tersedia untuk video
+                  Memuat preview video…
                 </p>
               </div>
 
-              <!-- BBox annotations (simulated from OCR result) -->
+              <!-- BBox annotations from backend bbox_norm -->
               <template v-if="activeItem.result">
                 <div
                   v-for="(box, bi) in activeItem.result.boxes"
@@ -301,6 +308,25 @@
 
               <!-- Metadata list -->
               <div class="meta-list">
+                <!-- Video batch summary -->
+                <template v-if="activeItem.result.is_video">
+                  <div class="meta-item">
+                    <span class="meta-item__label">Mode Deteksi</span>
+                    <span class="meta-item__val" style="color:var(--tertiary)">🎬 Video Batch</span>
+                  </div>
+                  <div class="meta-item">
+                    <span class="meta-item__label">Total Plat Terdeteksi</span>
+                    <span class="meta-item__val">{{ activeItem.result.total_found }}</span>
+                  </div>
+                  <div class="meta-item">
+                    <span class="meta-item__label">Frame Diproses</span>
+                    <span class="meta-item__val">{{ activeItem.result.frames_processed }}</span>
+                  </div>
+                  <div class="meta-item" v-if="activeItem.result.unique_plates.length">
+                    <span class="meta-item__label">Plat Unik Ditemukan</span>
+                    <span class="meta-item__val meta-item__val--mono">{{ activeItem.result.unique_plates.join(', ') }}</span>
+                  </div>
+                </template>
                 <div class="meta-item">
                   <span class="meta-item__label">Region Code Mapping</span>
                   <span class="meta-item__val">{{ activeItem.result.region }}</span>
@@ -317,18 +343,22 @@
                   <span class="meta-item__label">Source File</span>
                   <span class="meta-item__val meta-item__val--mono">{{ activeItem.name }}</span>
                 </div>
+                <div class="meta-item" v-if="sessionId">
+                  <span class="meta-item__label">Session ID</span>
+                  <span class="meta-item__val meta-item__val--mono">{{ sessionId }}</span>
+                </div>
               </div>
 
               <!-- Action buttons -->
               <div class="extraction-panel__actions">
-                <button class="btn-commit">
+                <button class="btn-commit" @click="$router.push('/riwayat')" title="Lihat hasil di Riwayat Deteksi">
                   <span class="material-symbols-outlined" style="font-size:15px">check</span>
-                  Validate & Commit
+                  Lihat Riwayat
                 </button>
-                <button class="btn-edit" title="Edit manual hasil OCR">
+                <button class="btn-edit" @click="$router.push('/riwayat')" title="Lihat & edit di halaman Riwayat">
                   <span class="material-symbols-outlined" style="font-size:15px">edit</span>
                 </button>
-                <button class="btn-edit" title="Tandai watchlist" @click="toggleWatchlist(activeItem)">
+                <button class="btn-edit" @click="$router.push('/kendaraan')" title="Kelola watchlist di halaman Kendaraan">
                   <span class="material-symbols-outlined" style="font-size:15px">flag</span>
                 </button>
               </div>
@@ -352,7 +382,7 @@
               :class="{ 'result-thumb--active': activeItem?.id === item.id }"
               @click="selectItem(item)"
             >
-              <img v-if="item.previewUrl" :src="item.previewUrl" alt="thumb" class="result-thumb__img" />
+              <img v-if="item.displayUrl" :src="item.displayUrl" alt="thumb" class="result-thumb__img" />
               <div class="result-thumb__overlay">
                 <span class="result-thumb__plate">{{ item.result?.plate || '—' }}</span>
                 <span
@@ -382,6 +412,12 @@
 <script setup>
 import { ref, computed } from 'vue'
 import MainLayout from '@/components/layout/MainLayout.vue'
+import { useDetectionStore } from '@/stores/detection'
+import { useStatsStore } from '@/stores/stats'
+import { toApiAssetUrl } from '@/lib/api'
+
+const detectionStore = useDetectionStore()
+const statsStore = useStatsStore()
 
 // ── Refs ──────────────────────────────────────────────────────────────────────
 const fileInputRef   = ref(null)
@@ -400,6 +436,10 @@ const activeItem = computed(() =>
 
 const doneItems = computed(() =>
   fileQueue.value.filter(f => f.status === 'done')
+)
+
+const processableItems = computed(() =>
+  fileQueue.value.filter(f => f.status === 'pending' || f.status === 'error')
 )
 
 // ── File handling ──────────────────────────────────────────────────────────────
@@ -428,14 +468,43 @@ function addFiles(files) {
       status:     'pending',   // pending | processing | done | error
       progress:   0,
       previewUrl: null,
+      displayUrl: null,
       result:     null,
+      response:   null,
+      errorMessage: null,
     }
 
     // Generate preview for images
     if (!isVideo) {
       const reader = new FileReader()
-      reader.onload = e => { item.previewUrl = e.target.result }
+      reader.onload = e => {
+        item.previewUrl = e.target.result
+        item.displayUrl = e.target.result
+      }
       reader.readAsDataURL(file)
+    } else {
+      // Generate video thumbnail from first frame
+      const videoEl = document.createElement('video')
+      videoEl.preload = 'metadata'
+      videoEl.muted = true
+      videoEl.playsInline = true
+      const objUrl = URL.createObjectURL(file)
+      videoEl.src = objUrl
+      videoEl.onloadeddata = () => {
+        videoEl.currentTime = 0.5
+      }
+      videoEl.onseeked = () => {
+        try {
+          const canvas = document.createElement('canvas')
+          canvas.width = videoEl.videoWidth
+          canvas.height = videoEl.videoHeight
+          canvas.getContext('2d').drawImage(videoEl, 0, 0)
+          item.previewUrl = canvas.toDataURL('image/jpeg', 0.7)
+          item.displayUrl = item.previewUrl
+        } catch (_) { /* cross-origin or codec issue */ }
+        URL.revokeObjectURL(objUrl)
+      }
+      videoEl.onerror = () => URL.revokeObjectURL(objUrl)
     }
 
     return item
@@ -461,10 +530,9 @@ function removeItem(id) {
 
 function selectItem(item) { activeItemId.value = item.id }
 
-// ── Processing (simulation — replace with real API) ────────────────────────────
+// API-backed upload processing.
 async function processAll() {
-  const pending = fileQueue.value.filter(f => f.status === 'pending')
-  for (const item of pending) {
+  for (const item of processableItems.value) {
     await processItem(item)
   }
 }
@@ -472,64 +540,67 @@ async function processAll() {
 async function processItem(item) {
   item.status   = 'processing'
   item.progress = 0
+  item.errorMessage = null
+  item.result = null
+  item.response = null
   activeItemId.value = item.id
 
-  // Simulate progress ticks
-  await simulateProgress(item)
-
-  // Generate dummy OCR result
-  item.result = generateDummyResult(item)
-  item.status  = 'done'
-}
-
-function simulateProgress(item) {
-  return new Promise(resolve => {
-    const ticks = [10, 25, 45, 60, 75, 88, 95, 100]
-    let i = 0
-    const interval = setInterval(() => {
-      item.progress = ticks[i]
-      i++
-      if (i >= ticks.length) {
-        clearInterval(interval)
-        resolve()
-      }
-    }, 180)
-  })
-}
-
-// ── Dummy result generator ────────────────────────────────────────────────────
-const PLATES   = ['B 1234 XYZ', 'D 5678 ABC', 'L 9012 QRS', 'AB 3344 TT', 'F 8877 GG', 'N 4321 PP']
-const REGIONS  = ['DKI Jakarta', 'Jawa Timur', 'Jawa Barat', 'Yogyakarta', 'Jawa Tengah']
-const VEHICLES = ['Passenger / SUV', 'Sedan - Silver', 'Minibus - White', 'Pickup - Black', 'Motorcycle']
-const STATUSES = ['valid', 'valid', 'valid', 'watchlist', 'invalid']
-
-function generateDummyResult(item) {
-  const plate   = PLATES[Math.floor(Math.random() * PLATES.length)]
-  const status  = STATUSES[Math.floor(Math.random() * STATUSES.length)]
-  const conf    = 0.80 + Math.random() * 0.19
-  return {
-    plate,
-    status,
-    confidence:   conf,
-    region:       REGIONS[Math.floor(Math.random() * REGIONS.length)],
-    vehicle_type: VEHICLES[Math.floor(Math.random() * VEHICLES.length)],
-    timestamp:    new Date().toISOString().replace('T', ' ').slice(0, 23),
-    boxes: [
-      {
-        plate,
-        x: 40 + Math.random() * 10,
-        y: 55 + Math.random() * 10,
-        w: 14 + Math.random() * 4,
-        h:  8 + Math.random() * 3,
-      }
-    ],
+  const progressTimer = startProgress(item)
+  try {
+    const result = await detectionStore.uploadFile(item.file)
+    clearInterval(progressTimer)
+    item.progress = 100
+    item.response = result
+    item.result = mapUploadResult(result)
+    item.displayUrl = toApiAssetUrl(result.annotated_image_url) || item.previewUrl
+    item.status = 'done'
+    await Promise.allSettled([
+      detectionStore.fetchDetections?.(1),
+      statsStore.fetchAll?.(),
+    ])
+  } catch (err) {
+    clearInterval(progressTimer)
+    item.progress = 100
+    item.status = 'error'
+    item.errorMessage = err.message || 'Upload gagal'
   }
 }
 
-// ── Actions ───────────────────────────────────────────────────────────────────
-function toggleWatchlist(item) {
-  if (item.result) {
-    item.result.status = item.result.status === 'watchlist' ? 'valid' : 'watchlist'
+function startProgress(item) {
+  return setInterval(() => {
+    if (item.progress < 90) {
+      item.progress += Math.max(3, Math.round((90 - item.progress) * 0.18))
+    }
+  }, 160)
+}
+
+// Map backend upload response into the local viewer state.
+function mapUploadResult(result) {
+  const detections = result?.detections || []
+  const first = detections[0] || null
+  return {
+    plate: first?.plate_text || 'Tidak terdeteksi',
+    status: first?.status || (detections.length ? 'invalid' : 'ocr_failed'),
+    confidence: first?.confidence ?? 0,
+    region: first?.region || '-',
+    vehicle_type: first?.vehicle_type || '-',
+    timestamp: new Date().toISOString().replace('T', ' ').slice(0, 23),
+    total_found: result?.total_found ?? detections.length,
+    unique_plates: result?.unique_plates ?? [],
+    frames_processed: result?.frames_processed ?? 0,
+    is_video: !!(result?.frames_processed),
+    boxes: detections
+      .filter(d => Array.isArray(d.bbox_norm) && d.bbox_norm.length === 4)
+      .map(d => {
+        const [x1, y1, x2, y2] = d.bbox_norm
+        return {
+          plate: d.plate_text || 'UNKNOWN',
+          x: x1 * 100,
+          y: y1 * 100,
+          w: Math.max(0, (x2 - x1) * 100),
+          h: Math.max(0, (y2 - y1) * 100),
+        }
+      }),
   }
 }
 
@@ -637,28 +708,6 @@ function statusChipClass(status) {
 }
 
 .drop-zone--has-file { padding: 32px 40px; }
-
-/* Decorative blobs */
-.drop-zone__blob {
-  position: absolute;
-  width: 220px;
-  height: 220px;
-  border-radius: 50%;
-  filter: blur(60px);
-  opacity: 0.4;
-  pointer-events: none;
-}
-
-.drop-zone__blob--tr {
-  top: -60px; right: -60px;
-  background: var(--surface-container-low);
-}
-
-.drop-zone__blob--bl {
-  bottom: -60px; left: -60px;
-  background: var(--primary-fixed);
-  opacity: .15;
-}
 
 /* Icon */
 .drop-zone__icon-wrap {
@@ -805,6 +854,16 @@ function statusChipClass(status) {
   color: var(--on-surface-variant);
 }
 
+.queue-item__error {
+  font-size: 11px;
+  color: #dc2626;
+  line-height: 1.35;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Progress bar */
 .queue-item__bar {
   height: 3px;
@@ -822,11 +881,31 @@ function statusChipClass(status) {
 }
 
 /* Status icons */
-.queue-item__status { flex-shrink: 0; }
+.queue-item__status {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 
 .status-icon { font-size: 20px; }
 .status-icon--done  { color: #16a34a; }
 .status-icon--error { color: #dc2626; }
+
+.status-retry {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 6px;
+  background: var(--surface-container-high);
+  color: var(--primary);
+  cursor: pointer;
+}
+
+.status-retry:hover { background: var(--surface-variant); }
 
 /* Spinner */
 .spinner {
@@ -1370,6 +1449,15 @@ function statusChipClass(status) {
 }
 
 .btn-edit:hover { background: var(--surface-container-high); color: var(--primary); }
+.btn-edit:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+.btn-edit:disabled:hover {
+  background: var(--surface-container-low);
+  color: var(--on-surface-variant);
+}
+
 
 /* ─── Batch results thumbnails ──────────────────────────────────────────────── */
 .batch-results { display: flex; flex-direction: column; gap: 12px; }

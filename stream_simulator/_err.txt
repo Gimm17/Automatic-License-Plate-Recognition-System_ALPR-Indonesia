@@ -1,0 +1,17 @@
+INFO:     Started server process [32452]
+INFO:     Waiting for application startup.
+2026-05-26 10:17:51,384 [INFO] stream_simulator: === Stream Simulator starting ===
+2026-05-26 10:17:51,389 [INFO] stream_simulator: Auto-restarting stream: d3b199dff044
+2026-05-26 10:17:51,392 [INFO] stream_simulator: Starting HLS stream: d3b199dff044
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:9000 (Press CTRL+C to quit)
+2026-05-26 10:18:18,961 [INFO] stream_simulator: Stopped stream: d3b199dff044
+2026-05-26 10:18:19,981 [INFO] stream_simulator: Starting HLS stream: d3b199dff044
+2026-05-26 11:17:09,049 [ERROR] asyncio: Exception in callback _ProactorBasePipeTransport._call_connection_lost(None)
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost(None)>
+Traceback (most recent call last):
+  File "C:\Program Files\Python310\lib\asyncio\events.py", line 80, in _run
+    self._context.run(self._callback, *self._args)
+  File "C:\Program Files\Python310\lib\asyncio\proactor_events.py", line 162, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host

@@ -4,14 +4,14 @@ SQLAlchemy ORM model for the `vehicles` lookup table.
 """
 
 from datetime import datetime
-from sqlalchemy import BigInteger, Column, Enum, Index, Integer, String, Text, TIMESTAMP
+from sqlalchemy import Column, Enum, Index, Integer, String, Text, TIMESTAMP
 from database import Base
 
 
 class Vehicle(Base):
     __tablename__ = "vehicles"
 
-    id           = Column(BigInteger, primary_key=True, autoincrement=True)
+    id           = Column(Integer, primary_key=True, autoincrement=True)
     plate_text   = Column(String(20), unique=True, nullable=False)
     owner_name   = Column(String(100), nullable=True)
     vehicle_type = Column(String(50), nullable=True)

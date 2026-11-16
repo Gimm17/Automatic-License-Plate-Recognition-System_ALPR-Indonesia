@@ -1,41 +1,47 @@
 """
 backend/routers/detection.py
-Fase 1 — Core detection router.
-
-Endpoints:
-  POST /api/detect        — Upload image/video and run ALPR pipeline
-  GET  /api/detections    — Paginated detection history with filters
-  GET  /api/detections/{id} — Single detection detail
+Upload detection and detection history endpoints.
 """
 
-import uuid
 import logging
+import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
 import cv2
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from config import settings
 from database import get_db
 from models.detection import Detection
-from schemas.detection import DetectionResponse, DetectionListResponse
-from services.plate_validator import validate_plate
-from utils.image_utils import save_image, resize_for_display
-from utils.response import success_response, error_response, paginated_response
-
-# ML services injected at startup from main.py (see app.state)
-from fastapi import Request
+from services.alpr_pipeline import (
+    apply_image_path,
+    process_frame,
+    relative_to_storage,
+    serialize_detection,
+    storage_url,
+)
+from utils.image_utils import resize_for_display, save_image
+from utils.response import error_response, paginated_response, success_response
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["Detection"])
 
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/bmp", "image/webp"}
-ALLOWED_VIDEO_TYPES = {"video/mp4", "video/avi", "video/quicktime", "video/x-msvideo"}
+ALLOWED_VIDEO_TYPES = {
+    "video/mp4",
+    "video/avi",
+    "video/quicktime",
+    "video/x-msvideo",
+    "application/mp4",
+}
+ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
+ALLOWED_VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov"}
 
 
-# ─── POST /api/detect ─────────────────────────────────────────────────────────
 @router.post("/detect")
 async def detect_plate(
     request: Request,
@@ -43,67 +49,57 @@ async def detect_plate(
     camera_id: Optional[int] = Form(None),
     db: Session = Depends(get_db),
 ):
-    """
-    Upload an image or video file and run the full ALPR pipeline.
+    """Upload an image or video file and run the ALPR pipeline."""
+    yolo = getattr(request.app.state, "yolo", None)
+    ocr = getattr(request.app.state, "ocr", None)
+    if yolo is None or ocr is None or not ocr.is_available():
+        return error_response(
+            "Detection service unavailable. YOLO or OCR is not loaded.",
+            code=503,
+        )
 
-    Returns:
-        {
-            "detections": [...],
-            "annotated_image_url": str | null,
-            "total_found": int,
-        }
-    """
-    yolo = request.app.state.yolo
-    ocr  = request.app.state.ocr
-
-    content_type = (file.content_type or "").lower()
-    is_image = content_type in ALLOWED_IMAGE_TYPES
-    is_video = content_type in ALLOWED_VIDEO_TYPES
-
+    content_type = (file.content_type or "").lower().split(";")[0]
+    ext = Path(file.filename or "upload").suffix.lower()
+    is_image, is_video = classify_upload_media(content_type, ext)
     if not is_image and not is_video:
         return error_response(
-            f"Unsupported file type: {content_type}. "
-            "Allowed: JPEG, PNG, BMP, WEBP, MP4, AVI, MOV",
+            f"Unsupported file type: {content_type or ext or 'unknown'}. Allowed: JPEG, PNG, BMP, WEBP, MP4, AVI, MOV",
             code=422,
         )
 
-    # ── Save upload to temp ────────────────────────────────────────────────
     settings.temp_dir.mkdir(parents=True, exist_ok=True)
-    ext = Path(file.filename or "upload").suffix or ".jpg"
-    temp_filename = f"{uuid.uuid4().hex}{ext}"
-    temp_path = settings.temp_dir / temp_filename
+    ext = ext or ".jpg"
+    temp_path = settings.temp_dir / f"{uuid.uuid4().hex}{ext}"
 
     try:
         contents = await file.read()
         if len(contents) > settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024:
-            return error_response(
-                f"File too large. Max: {settings.MAX_UPLOAD_SIZE_MB}MB", code=413
-            )
+            return error_response(f"File too large. Max: {settings.MAX_UPLOAD_SIZE_MB}MB", code=413)
         temp_path.write_bytes(contents)
-    except Exception as e:
-        logger.error(f"Failed to save upload: {e}")
-        return error_response("Failed to save uploaded file", code=500)
 
-    # ── Run pipeline ────────────────────────────────────────────────────────
-    try:
         if is_image:
-            results = await _process_image(
-                temp_path, camera_id, yolo, ocr, db
-            )
+            result = await _process_image(temp_path, camera_id, yolo, ocr, db)
         else:
-            results = await _process_video(
-                temp_path, camera_id, yolo, ocr, db
-            )
-        return success_response(results, "Detection completed")
-    except Exception as e:
-        logger.exception(f"Detection pipeline error: {e}")
-        return error_response(f"Detection failed: {str(e)}", code=500)
+            result = await _process_video(temp_path, camera_id, yolo, ocr, db)
+        return success_response(result, "Detection completed")
+    except Exception as exc:
+        logger.exception("Detection pipeline error: %s", exc)
+        db.rollback()
+        return error_response(f"Detection failed: {exc}", code=500)
     finally:
-        # Clean up temp file
-        try:
-            temp_path.unlink(missing_ok=True)
-        except Exception:
-            pass
+        temp_path.unlink(missing_ok=True)
+
+def classify_upload_media(content_type: str, ext: str) -> tuple[bool, bool]:
+    """Classify upload by MIME type, with extension fallback for generic browser uploads."""
+    if content_type in ALLOWED_IMAGE_TYPES:
+        return True, False
+    if content_type in ALLOWED_VIDEO_TYPES:
+        return False, True
+    if ext in ALLOWED_IMAGE_EXTENSIONS:
+        return True, False
+    if ext in ALLOWED_VIDEO_EXTENSIONS:
+        return False, True
+    return False, False
 
 
 async def _process_image(
@@ -113,94 +109,38 @@ async def _process_image(
     ocr,
     db: Session,
 ) -> dict:
-    """Run YOLO → crop → OCR → validate → save → annotate for a single image."""
     img = cv2.imread(str(image_path))
     if img is None:
         raise ValueError("Cannot read image file")
 
-    raw_detections = yolo.detect(img)
-    enriched: list[dict] = []
-
-    for det in raw_detections:
-        crop    = det["crop"]
-        bbox    = det["bbox"]
-        conf    = det["confidence"]
-
-        # OCR
-        ocr_result = ocr.read_plate(crop)
-        plate_text = ocr_result.get("text", "")
-        ocr_conf   = ocr_result.get("confidence", 0.0)
-
-        # Validate + enrich
-        validation = validate_plate(plate_text) if plate_text else {
-            "plate": "", "plate_raw": "", "valid": False,
-            "status": "ocr_failed", "region": "", "region_code": "",
-        }
-
-        status = validation["status"]
-        if not plate_text:
-            status = "ocr_failed"
-
-        # Save crop
-        crop_path_obj = save_image(
-            crop, settings.results_dir / "crops",
-            f"{uuid.uuid4().hex}_crop.jpg",
-        )
-
-        # Build detection dict with plate_text for annotator
-        det["plate_text"] = validation["plate"]
-        det["ocr_confidence"] = ocr_conf
-
-        # Save to DB
-        db_record = Detection(
-            camera_id      = camera_id,
-            plate_text     = validation["plate"] or plate_text or "UNKNOWN",
-            plate_raw      = plate_text,
-            confidence     = conf,
-            ocr_confidence = ocr_conf,
-            region         = validation.get("region", ""),
-            region_code    = validation.get("region_code", ""),
-            source_type    = "upload",
-            status         = status,
-            crop_path      = str(crop_path_obj.relative_to(
-                settings.storage_dir
-            )) if crop_path_obj else None,
-        )
-        db.add(db_record)
-
-        enriched.append({
-            "bbox":          bbox,
-            "confidence":    conf,
-            "plate_text":    validation["plate"],
-            "plate_raw":     plate_text,
-            "ocr_confidence": ocr_conf,
-            "region":        validation.get("region", ""),
-            "region_code":   validation.get("region_code", ""),
-            "status":        status,
-            "valid":         validation.get("valid", False),
-            "crop_url":      f"/storage/crops/{crop_path_obj.name}" if crop_path_obj else None,
-        })
-
-    # Annotate full image
-    annotated = yolo.annotate(img, raw_detections)
-    annotated_resized = resize_for_display(annotated, max_width=1200)
-    annotated_path = save_image(
-        annotated_resized, settings.results_dir,
-        f"{uuid.uuid4().hex}_annotated.jpg",
+    pipeline_result = process_frame(
+        img,
+        yolo=yolo,
+        ocr=ocr,
+        db=db,
+        camera_id=camera_id,
+        source_type="upload",
+        save_crops=True,
+        persist=True,
     )
 
-    # Update DB records with annotated_image_path and commit
-    for record in db.new:
-        if isinstance(record, Detection) and not record.image_path:
-            record.image_path = str(
-                annotated_path.relative_to(settings.storage_dir)
-            )
+    annotated = yolo.annotate(img, pipeline_result["raw_detections"])
+    annotated_resized = resize_for_display(annotated, max_width=1200)
+    annotated_path = save_image(
+        annotated_resized,
+        settings.results_dir,
+        f"{uuid.uuid4().hex}_annotated.jpg",
+    )
+    apply_image_path(pipeline_result["records"], annotated_path)
     db.commit()
 
+    annotated_rel = relative_to_storage(annotated_path)
     return {
-        "detections":          enriched,
-        "annotated_image_url": f"/storage/{annotated_path.relative_to(settings.storage_dir).as_posix()}",
-        "total_found":         len(enriched),
+        "detections": pipeline_result["detections"],
+        "annotated_image_url": storage_url(annotated_rel),
+        "image_width": pipeline_result["image_width"],
+        "image_height": pipeline_result["image_height"],
+        "total_found": len(pipeline_result["detections"]),
     }
 
 
@@ -212,14 +152,24 @@ async def _process_video(
     db: Session,
     frame_interval: int = 30,
 ) -> dict:
-    """Extract frames from video and run ALPR on each sampled frame."""
-    cap = cv2.VideoCapture(str(video_path))
+    # Resolve to absolute path for reliable OpenCV access on all platforms
+    abs_path = str(video_path.resolve())
+    file_size = video_path.stat().st_size if video_path.exists() else 0
+    logger.info("Opening video: %s (%d bytes)", abs_path, file_size)
+
+    if file_size == 0:
+        raise ValueError("Video file is empty (0 bytes): " + abs_path)
+
+    cap = cv2.VideoCapture(abs_path)
     if not cap.isOpened():
-        raise ValueError("Cannot open video file")
+        raise ValueError(
+            "Cannot open video file (OpenCV VideoCapture failed). "
+            "Path: " + abs_path + ", Size: " + str(file_size) + " bytes. "
+            "Ensure the video codec is supported (H.264/H.265 MP4, AVI, MOV)."
+        )
 
     all_detections: list[dict] = []
     frame_count = 0
-
     try:
         while True:
             ret, frame = cap.read()
@@ -229,76 +179,55 @@ async def _process_video(
             if frame_count % frame_interval != 0:
                 continue
 
-            raw = yolo.detect(frame)
-            for det in raw:
-                ocr_result = ocr.read_plate(det["crop"])
-                plate_text = ocr_result.get("text", "")
-                ocr_conf   = ocr_result.get("confidence", 0.0)
-
-                validation = validate_plate(plate_text) if plate_text else {
-                    "plate": "", "valid": False,
-                    "status": "ocr_failed", "region": "", "region_code": "",
-                }
-
-                status = validation["status"] if plate_text else "ocr_failed"
-
-                db_record = Detection(
-                    camera_id      = camera_id,
-                    plate_text     = validation.get("plate") or "UNKNOWN",
-                    plate_raw      = plate_text,
-                    confidence     = det["confidence"],
-                    ocr_confidence = ocr_conf,
-                    region         = validation.get("region", ""),
-                    region_code    = validation.get("region_code", ""),
-                    source_type    = "video_batch",
-                    status         = status,
-                )
-                db.add(db_record)
-
-                all_detections.append({
-                    "plate_text":    validation.get("plate", ""),
-                    "confidence":    det["confidence"],
-                    "ocr_confidence": ocr_conf,
-                    "status":        status,
-                    "frame":         frame_count,
-                })
+            pipeline_result = process_frame(
+                frame,
+                yolo=yolo,
+                ocr=ocr,
+                db=db,
+                camera_id=camera_id,
+                source_type="video_batch",
+                save_crops=False,
+                persist=True,
+            )
+            for item in pipeline_result["detections"]:
+                all_detections.append({**item, "frame": frame_count})
     finally:
         cap.release()
 
     db.commit()
-
-    unique_plates = list({d["plate_text"] for d in all_detections if d["plate_text"]})
+    unique_plates = sorted({d["plate_text"] for d in all_detections if d.get("plate_text")})
     return {
-        "detections":   all_detections,
-        "total_found":  len(all_detections),
+        "detections": all_detections,
+        "total_found": len(all_detections),
         "unique_plates": unique_plates,
         "frames_processed": frame_count // frame_interval,
         "annotated_image_url": None,
+        "image_width": None,
+        "image_height": None,
     }
 
 
-# ─── GET /api/detections ──────────────────────────────────────────────────────
 @router.get("/detections")
 async def list_detections(
-    page:      int = 1,
-    limit:     int = 20,
+    page: int = 1,
+    limit: int = 20,
     camera_id: Optional[int] = None,
-    status:    Optional[str] = None,
+    status: Optional[str] = None,
     date_from: Optional[str] = None,
-    date_to:   Optional[str] = None,
-    search:    Optional[str] = None,
+    date_to: Optional[str] = None,
+    search: Optional[str] = None,
+    source_type: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
-    """Paginated list of detections with optional filters."""
-    from datetime import datetime
-    from sqlalchemy import or_
-
+    """Paginated detection history with optional filters."""
     query = db.query(Detection)
 
     if camera_id:
         query = query.filter(Detection.camera_id == camera_id)
     if status:
         query = query.filter(Detection.status == status)
+    if source_type:
+        query = query.filter(Detection.source_type == source_type)
     if search:
         query = query.filter(
             or_(
@@ -308,45 +237,31 @@ async def list_detections(
         )
     if date_from:
         try:
-            dt_from = datetime.fromisoformat(date_from)
-            query = query.filter(Detection.detected_at >= dt_from)
+            query = query.filter(Detection.detected_at >= datetime.fromisoformat(date_from))
         except ValueError:
             pass
     if date_to:
         try:
-            dt_to = datetime.fromisoformat(date_to)
-            query = query.filter(Detection.detected_at <= dt_to)
+            query = query.filter(Detection.detected_at <= datetime.fromisoformat(date_to))
         except ValueError:
             pass
 
-    total  = query.count()
-    offset = (page - 1) * limit
-    items  = (
+    total = query.count()
+    page = max(1, page)
+    limit = max(1, min(limit, 100))
+    items = (
         query.order_by(Detection.detected_at.desc())
-        .offset(offset)
+        .offset((page - 1) * limit)
         .limit(limit)
         .all()
     )
-
-    serialized = []
-    for item in items:
-        d = DetectionResponse.model_validate(item).model_dump()
-        if item.camera:
-            d["camera_name"] = item.camera.name
-        serialized.append(d)
-
-    return paginated_response(serialized, total, page, limit)
+    return paginated_response([serialize_detection(item) for item in items], total, page, limit)
 
 
-# ─── GET /api/detections/{id} ────────────────────────────────────────────────
 @router.get("/detections/{detection_id}")
 async def get_detection(detection_id: int, db: Session = Depends(get_db)):
     """Return a single detection by ID."""
     record = db.query(Detection).filter(Detection.id == detection_id).first()
     if not record:
         return error_response("Detection not found", code=404)
-
-    d = DetectionResponse.model_validate(record).model_dump()
-    if record.camera:
-        d["camera_name"] = record.camera.name
-    return success_response(d)
+    return success_response(serialize_detection(record))

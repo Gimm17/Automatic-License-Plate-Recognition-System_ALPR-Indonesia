@@ -41,6 +41,13 @@ def _create_engine_with_fallback():
         logger.info("✅ Connected to MySQL database")
         return eng
     except Exception as e:
+        if settings.APP_ENV.lower() == "production" and not settings.DB_FALLBACK_SQLITE:
+            logger.error(
+                "MySQL unavailable in production and DB_FALLBACK_SQLITE=false; "
+                "refusing silent SQLite fallback"
+            )
+            raise
+
         logger.warning(f"⚠️  MySQL unavailable ({e}) — falling back to SQLite")
         # Ensure storage dir exists
         (BASE_DIR / "storage").mkdir(parents=True, exist_ok=True)

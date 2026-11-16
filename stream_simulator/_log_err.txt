@@ -1,0 +1,9 @@
+INFO:     Started server process [28844]
+INFO:     Waiting for application startup.
+2026-05-26 09:42:13,539 [INFO] stream_simulator: === Stream Simulator starting ===
+2026-05-26 09:42:13,552 [INFO] stream_simulator: Auto-restarting stream: 9e90ec86d996
+2026-05-26 09:42:13,557 [INFO] stream_simulator: Starting HLS stream: 9e90ec86d996
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:9000 (Press CTRL+C to quit)
+2026-05-26 09:42:52,780 [INFO] stream_simulator: Stopped stream: 9e90ec86d996
+2026-05-26 09:42:53,787 [INFO] stream_simulator: Starting HLS stream: 9e90ec86d996

@@ -11,13 +11,13 @@ Endpoints:
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, Request, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 
 from database import get_db
 from models.camera import Camera
 from utils.response import success_response, error_response
-from fastapi import Request
+from security import verify_websocket_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +31,8 @@ api_router = APIRouter(prefix="/api/stream", tags=["Stream Management"])
 async def websocket_stream(
     websocket: WebSocket,
     camera_id: int,
-    request: Request,
     source_override: Optional[str] = None,  # Query param: ?source_override=rtsp://...
+    api_key: Optional[str] = None,
 ):
     """
     WebSocket endpoint for live ALPR stream.
@@ -57,8 +57,32 @@ async def websocket_stream(
     WebSocket receive (client → server):
         {"action": "stop"}  — Client sends this to gracefully stop the stream.
     """
-    stream_service = request.app.state.stream
+    if not await verify_websocket_api_key(websocket):
+        await websocket.accept()
+        await websocket.send_json({"type": "error", "message": "Invalid or missing API key"})
+        await websocket.close(code=1008)
+        return
+
+    stream_service = getattr(websocket.app.state, "stream", None)
     db: Session = next(get_db())
+
+    # Guard: ML service not initialized (NumPy/YOLO install issue)
+    ocr_service = getattr(websocket.app.state, "ocr", None)
+    if (
+        stream_service is None
+        or getattr(websocket.app.state, "yolo", None) is None
+        or ocr_service is None
+        or not ocr_service.is_available()
+    ):
+        await websocket.accept()
+        await websocket.send_json({
+            "type":    "error",
+            "message": "Stream service unavailable (ML dependencies not loaded). "
+                       "Install ultralytics & paddleocr and restart the server.",
+        })
+        await websocket.close()
+        db.close()
+        return
 
     # ── Resolve the RTSP source ────────────────────────────────────────────
     if source_override:
@@ -73,6 +97,7 @@ async def websocket_stream(
                 "message": f"Camera with id={camera_id} not found in database",
             })
             await websocket.close()
+            db.close()
             return
 
         if not camera.rtsp_url:
@@ -82,6 +107,7 @@ async def websocket_stream(
                 "message": f"Camera '{camera.name}' has no RTSP URL configured",
             })
             await websocket.close()
+            db.close()
             return
 
         if not camera.is_active:
@@ -91,6 +117,7 @@ async def websocket_stream(
                 "message": f"Camera '{camera.name}' is currently inactive",
             })
             await websocket.close()
+            db.close()
             return
 
         rtsp_source = camera.rtsp_url
@@ -141,7 +168,7 @@ async def get_stream_status(request: Request, db: Session = Depends(get_db)):
             "location":  c.location or "",
             "is_active": c.is_active,
             "has_rtsp":  bool(c.rtsp_url),
-            "streaming": stream_service.is_streaming(c.id),
+            "streaming": stream_service.is_streaming(c.id) if stream_service else False,
         }
         for c in cameras
     ]

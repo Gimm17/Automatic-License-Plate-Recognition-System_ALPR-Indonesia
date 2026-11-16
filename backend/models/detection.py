@@ -5,8 +5,8 @@ SQLAlchemy ORM model for the `detections` table.
 
 from datetime import datetime
 from sqlalchemy import (
-    BigInteger, Column, Enum, Float, ForeignKey,
-    Index, String, Text, TIMESTAMP
+    Column, Enum, Float, ForeignKey,
+    Index, Integer, String, Text, TIMESTAMP
 )
 from sqlalchemy.orm import relationship
 from database import Base
@@ -15,8 +15,8 @@ from database import Base
 class Detection(Base):
     __tablename__ = "detections"
 
-    id              = Column(BigInteger, primary_key=True, autoincrement=True)
-    camera_id       = Column(BigInteger, ForeignKey("cameras.id", ondelete="SET NULL"), nullable=True)
+    id              = Column(Integer, primary_key=True, autoincrement=True)
+    camera_id       = Column(Integer, ForeignKey("cameras.id", ondelete="SET NULL"), nullable=True)
     plate_text      = Column(String(20), nullable=False)
     plate_raw       = Column(String(20), nullable=True)      # OCR raw before cleaning
     confidence      = Column(Float, nullable=True)            # YOLOv8 confidence 0‑1

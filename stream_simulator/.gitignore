@@ -1,0 +1,8 @@
+uploads/
+streams/
+streams_db.json
+tools/ffmpeg.exe
+tools/ffplay.exe
+tools/ffprobe.exe
+__pycache__/
+*.pyc
