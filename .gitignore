@@ -71,3 +71,11 @@ stream_simulator/tools/
 stream_simulator/uploads/
 stream_simulator/streams/
 backend/ml_models/*.jpg
+
+# Security: ignore environment, cPanel, and secret files
+!.env.*.example
+cpanel.txt
+*cpanel*.txt
+*CPANEL*.txt
+*secret*.txt
+pwsupersecretcpanel.txt
